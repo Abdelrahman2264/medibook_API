@@ -93,6 +93,8 @@ namespace medibook_API.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INT");
 
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("doctor_id"));
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -123,6 +125,8 @@ namespace medibook_API.Migrations
 
                     b.HasKey("doctor_id")
                         .HasName("DOCTORID_PK");
+
+                    b.HasIndex("user_id");
 
                     b.ToTable("Doctors", t =>
                         {
@@ -247,6 +251,8 @@ namespace medibook_API.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INT");
 
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("notification_id"));
+
                     b.Property<DateTime>("create_date")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2(0)")
@@ -274,6 +280,8 @@ namespace medibook_API.Migrations
                     b.HasKey("notification_id")
                         .HasName("NOTIFICATIONID_PK");
 
+                    b.HasIndex("user_id");
+
                     b.ToTable("Notifications");
                 });
 
@@ -282,6 +290,8 @@ namespace medibook_API.Migrations
                     b.Property<int>("nurse_id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INT");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("nurse_id"));
 
                     b.Property<string>("bio")
                         .IsRequired()
@@ -295,6 +305,8 @@ namespace medibook_API.Migrations
 
                     b.HasKey("nurse_id")
                         .HasName("NURSEID_PK");
+
+                    b.HasIndex("user_id");
 
                     b.ToTable("Nurses");
                 });
@@ -428,6 +440,10 @@ namespace medibook_API.Migrations
                         .HasColumnName("email")
                         .HasAnnotation("RegularExpression", "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
+                    b.Property<string>("email_verified")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("first_name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -541,7 +557,7 @@ namespace medibook_API.Migrations
                 {
                     b.HasOne("medibook_API.Models.Users", "Users")
                         .WithMany("Doctors")
-                        .HasForeignKey("doctor_id")
+                        .HasForeignKey("user_id")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_User_Doctor");
@@ -594,7 +610,7 @@ namespace medibook_API.Migrations
                 {
                     b.HasOne("medibook_API.Models.Users", "Users")
                         .WithMany("Notifications")
-                        .HasForeignKey("notification_id")
+                        .HasForeignKey("user_id")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_User_Notification");
@@ -606,7 +622,7 @@ namespace medibook_API.Migrations
                 {
                     b.HasOne("medibook_API.Models.Users", "Users")
                         .WithMany("Nurses")
-                        .HasForeignKey("nurse_id")
+                        .HasForeignKey("user_id")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("FK_User_Nurse");

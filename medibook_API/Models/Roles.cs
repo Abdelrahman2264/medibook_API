@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace medibook_API.Models
 {
@@ -14,6 +15,7 @@ namespace medibook_API.Models
         public string role_name { get; set; } = string.Empty;
         public DateTime create_date { get; set; } = DateTime.Now;
 
-        public ICollection<Users> Users { get; set; }
+        [JsonIgnore]
+        public ICollection<Users> ? Users { get; set; }
     }
 }

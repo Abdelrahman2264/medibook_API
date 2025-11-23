@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace medibook_API.Migrations
 {
     /// <inheritdoc />
-    public partial class INITMIGRATIONFORDATABASE : Migration
+    public partial class INITDATABASE : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -68,6 +68,7 @@ namespace medibook_API.Migrations
                     gender = table.Column<string>(type: "varchar(20)", unicode: false, maxLength: 20, nullable: false),
                     mitrial_status = table.Column<string>(type: "varchar(50)", unicode: false, maxLength: 50, nullable: false),
                     is_active = table.Column<bool>(type: "bit", nullable: false),
+                    email_verified = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     email = table.Column<string>(type: "varchar(100)", unicode: false, maxLength: 100, nullable: false),
                     mobile_phone = table.Column<string>(type: "varchar(50)", unicode: false, maxLength: 50, nullable: false),
                     password_hash = table.Column<string>(type: "varchar(max)", unicode: false, nullable: false),
@@ -91,7 +92,8 @@ namespace medibook_API.Migrations
                 name: "Doctors",
                 columns: table => new
                 {
-                    doctor_id = table.Column<int>(type: "INT", nullable: false),
+                    doctor_id = table.Column<int>(type: "INT", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
                     bio = table.Column<string>(type: "varchar(500)", unicode: false, maxLength: 500, nullable: false),
                     specialization = table.Column<string>(type: "varchar(150)", unicode: false, maxLength: 150, nullable: false),
                     type = table.Column<string>(type: "varchar(100)", unicode: false, maxLength: 100, nullable: false),
@@ -104,7 +106,7 @@ namespace medibook_API.Migrations
                     table.CheckConstraint("CK_ExperienceYears_NonNegative", "experience_years >= 0");
                     table.ForeignKey(
                         name: "FK_User_Doctor",
-                        column: x => x.doctor_id,
+                        column: x => x.user_id,
                         principalTable: "Users",
                         principalColumn: "user_id");
                 });
@@ -136,7 +138,8 @@ namespace medibook_API.Migrations
                 name: "Notifications",
                 columns: table => new
                 {
-                    notification_id = table.Column<int>(type: "INT", nullable: false),
+                    notification_id = table.Column<int>(type: "INT", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
                     message = table.Column<string>(type: "varchar(500)", unicode: false, maxLength: 500, nullable: false),
                     is_read = table.Column<bool>(type: "bit", nullable: false),
                     create_date = table.Column<DateTime>(type: "datetime2(0)", nullable: false, defaultValueSql: "(sysdatetime())"),
@@ -148,7 +151,7 @@ namespace medibook_API.Migrations
                     table.PrimaryKey("NOTIFICATIONID_PK", x => x.notification_id);
                     table.ForeignKey(
                         name: "FK_User_Notification",
-                        column: x => x.notification_id,
+                        column: x => x.user_id,
                         principalTable: "Users",
                         principalColumn: "user_id");
                 });
@@ -157,7 +160,8 @@ namespace medibook_API.Migrations
                 name: "Nurses",
                 columns: table => new
                 {
-                    nurse_id = table.Column<int>(type: "INT", nullable: false),
+                    nurse_id = table.Column<int>(type: "INT", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
                     bio = table.Column<string>(type: "varchar(500)", unicode: false, maxLength: 500, nullable: false),
                     user_id = table.Column<int>(type: "INT", nullable: false)
                 },
@@ -166,7 +170,7 @@ namespace medibook_API.Migrations
                     table.PrimaryKey("NURSEID_PK", x => x.nurse_id);
                     table.ForeignKey(
                         name: "FK_User_Nurse",
-                        column: x => x.nurse_id,
+                        column: x => x.user_id,
                         principalTable: "Users",
                         principalColumn: "user_id");
                 });
@@ -270,6 +274,11 @@ namespace medibook_API.Migrations
                 column: "room_id");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Doctors_user_id",
+                table: "Doctors",
+                column: "user_id");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_FeedBacks_appointment_id",
                 table: "FeedBacks",
                 column: "appointment_id",
@@ -288,6 +297,16 @@ namespace medibook_API.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_Logs_user_id",
                 table: "Logs",
+                column: "user_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Notifications_user_id",
+                table: "Notifications",
+                column: "user_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Nurses_user_id",
+                table: "Nurses",
                 column: "user_id");
 
             migrationBuilder.CreateIndex(

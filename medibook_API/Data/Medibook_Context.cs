@@ -35,6 +35,8 @@ namespace medibook_API.Data
             modelBuilder.Entity<Users>(entity =>
             {
                 entity.HasKey(e => e.user_id).HasName("USERUID_PK");
+                entity.Property(e => e.user_id)
+.ValueGeneratedOnAdd();
 
                 entity.HasIndex(e => e.email, "USEREMAIL_UQ")
                   .IsUnique();
@@ -112,6 +114,8 @@ namespace medibook_API.Data
             modelBuilder.Entity<Roles>(entity =>
          {
              entity.HasKey(e => e.role_id).HasName("ROLEID_PK");
+             entity.Property(e => e.role_id)
+.ValueGeneratedOnAdd();
 
              entity.Property(e => e.role_name)
              .HasMaxLength(50)
@@ -134,7 +138,7 @@ namespace medibook_API.Data
                .IsRequired()
                .HasColumnName("bio");
                entity.HasOne(e => e.Users).WithMany(d => d.Nurses)
-              .HasForeignKey(e => e.nurse_id)
+              .HasForeignKey(e => e.user_id)
               .IsRequired()
               .OnDelete(DeleteBehavior.NoAction)
               .HasConstraintName("FK_User_Nurse");
@@ -142,7 +146,10 @@ namespace medibook_API.Data
            });
             modelBuilder.Entity<Doctors>(entity =>
            {
-               entity.HasKey(e => e.doctor_id).HasName("DOCTORID_PK");
+               entity.HasKey(e => e.doctor_id)
+               .HasName("DOCTORID_PK");
+               entity.Property(e => e.doctor_id)
+      .ValueGeneratedOnAdd();
 
                entity.Property(e => e.bio)
                .HasMaxLength(500)
@@ -166,7 +173,7 @@ namespace medibook_API.Data
                    "experience_years >= 0");
 
                entity.HasOne(e => e.Users).WithMany(d => d.Doctors)
-              .HasForeignKey(e => e.doctor_id)
+              .HasForeignKey(e => e.user_id)
               .IsRequired()
               .OnDelete(DeleteBehavior.NoAction)
               .HasConstraintName("FK_User_Doctor");
@@ -175,6 +182,8 @@ namespace medibook_API.Data
             modelBuilder.Entity<Notifications>(entity =>
            {
                entity.HasKey(e => e.notification_id).HasName("NOTIFICATIONID_PK");
+               entity.Property(e => e.notification_id)
+.ValueGeneratedOnAdd();
 
                entity.Property(e => e.message)
                .HasMaxLength(500)
@@ -191,7 +200,7 @@ namespace medibook_API.Data
                 .HasDefaultValueSql("(sysdatetime())")
                 .HasColumnName("create_date");
                entity.HasOne(e => e.Users).WithMany(d => d.Notifications)
-              .HasForeignKey(e => e.notification_id)
+              .HasForeignKey(e => e.user_id)
               .IsRequired()
               .OnDelete(DeleteBehavior.NoAction)
               .HasConstraintName("FK_User_Notification");
@@ -205,6 +214,8 @@ namespace medibook_API.Data
             modelBuilder.Entity<Rooms>(entity =>
            {
                entity.HasKey(e => e.room_id).HasName("ROOMID_PK");
+               entity.Property(e => e.room_id)
+.ValueGeneratedOnAdd();
                entity.HasIndex(e => e.room_name, "ROOMNAME_UQ")
                .IsUnique();
                entity.Property(e => e.room_name)
@@ -231,7 +242,8 @@ namespace medibook_API.Data
             modelBuilder.Entity<Logs>(entity =>
            {
                entity.HasKey(e => e.log_id).HasName("LOGID_PK");
-
+               entity.Property(e => e.log_id)
+                .ValueGeneratedOnAdd();
                entity.Property(e => e.action_type)
                .HasMaxLength(50)
                .IsUnicode(false)
@@ -256,7 +268,8 @@ namespace medibook_API.Data
             modelBuilder.Entity<Appointments>(entity =>
            {
                entity.HasKey(e => e.appointment_id).HasName("APPOINTMENTID_PK");
-
+               entity.Property(e => e.appointment_id)
+.ValueGeneratedOnAdd();
                entity.Property(e => e.status)
                .HasMaxLength(50)
                .IsUnicode(false)
@@ -302,7 +315,8 @@ namespace medibook_API.Data
             modelBuilder.Entity<FeedBacks>(entity =>
            {
                entity.HasKey(e => e.feedback_id).HasName("FEEDBACKID_PK");
-
+               entity.Property(e => e.feedback_id)
+                .ValueGeneratedOnAdd();
                entity.Property(e => e.comment)
                .HasMaxLength(500)
                .IsUnicode(false)
