@@ -12,14 +12,17 @@ namespace medibook_API.Extensions.Repositories
         private readonly Medibook_Context database;
         private readonly ILogger<RoomRepository> logger;
         private readonly StringNormalizer stringNormalizer;
+        private readonly ILogRepository logRepository;
 
         public RoomRepository(Medibook_Context database,
             ILogger<RoomRepository> logger,
-            StringNormalizer stringNormalizer)
+            StringNormalizer stringNormalizer,
+            ILogRepository logRepository)
         {
             this.database = database;
             this.logger = logger;
             this.stringNormalizer = stringNormalizer;
+            this.logRepository = logRepository;
         }
 
 
@@ -61,6 +64,7 @@ namespace medibook_API.Extensions.Repositories
                 room.is_active = true;
                 room.create_date = DateTime.Now;
                 await database.Rooms.AddAsync(room);
+                await logRepository.CreateLogAsync("Create", "Success", $"Room {room.room_name} of type {room.room_type} created.");
                 await database.SaveChangesAsync();
                 logger.LogInformation("CreateRoomAsync: Room created successfully with ID {RoomId}.", room.room_id);
                 return room;
@@ -180,7 +184,7 @@ namespace medibook_API.Extensions.Repositories
             }
         }
 
-      
+
         public async Task<bool> IsRoomExist(string name, string type, int id)
         {
             try

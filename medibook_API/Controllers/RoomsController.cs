@@ -1,5 +1,6 @@
 ﻿using medibook_API.Extensions.IRepositories;
 using medibook_API.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
@@ -8,6 +9,7 @@ namespace medibook_API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")] // API prefix
+    [Authorize]
     public class RoomsController : ControllerBase
     {
         private readonly IRoomRepository roomRepository;

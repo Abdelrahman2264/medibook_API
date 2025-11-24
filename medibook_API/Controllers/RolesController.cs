@@ -1,6 +1,7 @@
 ﻿using medibook_API.Extensions.IRepositories;
 using medibook_API.Extensions.Repositories;
 using medibook_API.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
 
@@ -8,6 +9,7 @@ namespace medibook_API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")] // API prefix
+    [Authorize]
     public class RolesController : Controller
     {
         private readonly ILogger<RolesController> logger;

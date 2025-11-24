@@ -1,5 +1,6 @@
 ﻿using medibook_API.Extensions.DTOs;
 using medibook_API.Extensions.IRepositories;
+using medibook_API.Extensions.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
@@ -8,16 +9,18 @@ namespace medibook_API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-
+    [Authorize]
     public class UsersController : Controller
     {
         private readonly ILogger<UsersController> logger;
         private readonly IUserRepository userRepository;
+        private readonly IUserContextService userContextService;
 
-        public UsersController(ILogger<UsersController> logger, IUserRepository userRepository)
+        public UsersController(ILogger<UsersController> logger, IUserRepository userRepository, IUserContextService userContextService)
         {
             this.logger = logger;
             this.userRepository = userRepository;
+            this.userContextService = userContextService;
         }
 
         // GET: /api/Users/all
@@ -165,6 +168,38 @@ namespace medibook_API.Controllers
             var result = await userRepository.InActiveUserAsync(id);
             if (!result) return NotFound($"User with ID {id} not found.");
             return Ok(new { Message = "User deactivated successfully" });
+        }
+
+        // GET: /api/Users/current
+        [HttpGet("current")]
+        [ProducesResponseType(typeof(UserDetailsDto), (int)HttpStatusCode.OK)]
+        [ProducesResponseType((int)HttpStatusCode.NotFound)]
+        [ProducesResponseType((int)HttpStatusCode.Unauthorized)]
+        [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> GetCurrentUser()
+        {
+            try
+            {
+                var currentUserId = userContextService.GetCurrentUserId();
+                
+                if (currentUserId <= 0)
+                {
+                    return Unauthorized("Unable to retrieve current user information from token.");
+                }
+
+                var user = await userRepository.GetUserByIdAsync(currentUserId);
+                if (user == null)
+                {
+                    return NotFound($"User with ID {currentUserId} not found.");
+                }
+
+                return Ok(user);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error occurred while retrieving current user.");
+                return StatusCode(500, "Internal server error");
+            }
         }
     }
 }

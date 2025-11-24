@@ -3,6 +3,7 @@ using medibook_API.Extensions.IRepositories;
 using medibook_API.Extensions.Services;
 using medibook_API.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace medibook_API.Extensions.Repositories
 {
@@ -12,18 +13,35 @@ namespace medibook_API.Extensions.Repositories
         private readonly Medibook_Context database; 
         private readonly ILogger<RolesRepository> logger;
         private readonly StringNormalizer stringNormalizer;
-        public RolesRepository(Medibook_Context database, ILogger<RolesRepository> logger, StringNormalizer stringNormalizer)
+        private readonly IHttpContextAccessor _context;
+
+        public RolesRepository(Medibook_Context database, ILogger<RolesRepository> logger, StringNormalizer stringNormalizer , IHttpContextAccessor context)
         {
             this.database = database;
             this.logger = logger;
             this.stringNormalizer = stringNormalizer;
-        }
+            _context = context;
 
+        }
+        public int GetCurrentUserId()
+        {
+            var id = _context.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(id))
+            {
+                return 0;
+            }
+            if (int.TryParse(id, out int userId))
+            {
+                return userId;
+            }
+            return 0;
+        }
         public async Task<Roles> CreateNewRoleAsync(Roles role)
         {
 
             try
             {
+
                 if (role == null)
                 {
                     logger.LogWarning("Role object is null");
@@ -48,6 +66,10 @@ namespace medibook_API.Extensions.Repositories
         {
             try
             {
+                
+                var user  = GetCurrentUserId();
+                Console.WriteLine("Current User ID: " + user);
+
                 var roles = await database.Roles.ToListAsync();
                 return roles;
 

@@ -1,4 +1,5 @@
 using medibook_API.Data;
+using medibook_API.Extensions.DTOs;
 using medibook_API.Extensions.IRepositories;
 using medibook_API.Extensions.Repositories;
 using medibook_API.Extensions.Services;
@@ -9,6 +10,9 @@ using Microsoft.OpenApi.Models;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.Configure<EmailSettingsDto>(builder.Configuration.GetSection("EmailSettings"));
+
 
 // Add services to the container.
 builder.Services.AddControllers().AddJsonOptions(o =>
@@ -42,6 +46,7 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(key)
     };
 });
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddAuthorization();
 
@@ -60,6 +65,8 @@ builder.Services.AddScoped<IPasswordHasherRepository, PasswordHasherRepository>(
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<StringNormalizer>();
 builder.Services.AddScoped<TokenService>();
+builder.Services.AddScoped<EmailServices>();
+builder.Services.AddScoped<IUserContextService, UserContextService>();
 
 // Enable CORS
 builder.Services.AddCors(options =>

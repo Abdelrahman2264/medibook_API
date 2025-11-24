@@ -1,5 +1,6 @@
 ﻿using medibook_API.Extensions.DTOs;
 using medibook_API.Extensions.IRepositories;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
 
@@ -7,6 +8,7 @@ namespace medibook_API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class NursesController : Controller
     {
         private readonly ILogger<NursesController> logger;

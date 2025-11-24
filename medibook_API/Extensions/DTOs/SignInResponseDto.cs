@@ -1,6 +1,6 @@
 ﻿namespace medibook_API.Extensions.DTOs
 {
-    public class LoginResponseDto
+    public class SignInResponseDto
     {
         public string Token { get; set; }
         public string Message { get; set; }

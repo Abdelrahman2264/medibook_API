@@ -13,6 +13,7 @@ namespace medibook_API.Controllers
         private readonly ILogger<AuthController> logger;
         private readonly IAuthRepository authRepository;
 
+
         public AuthController(ILogger<AuthController> logger, IAuthRepository authRepository)
         {
             this.logger = logger;
@@ -20,11 +21,11 @@ namespace medibook_API.Controllers
         }
 
         // POST: /api/Auth/login
-        [HttpPost("login")]
-        [ProducesResponseType(typeof(LoginResponseDto), (int)HttpStatusCode.OK)]
+        [HttpPost("signIn")]
+        [ProducesResponseType(typeof(SignInResponseDto), (int)HttpStatusCode.OK)]
         [ProducesResponseType((int)HttpStatusCode.BadRequest)]
         [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
-        public async Task<IActionResult> Login([FromBody] LoginDto dto)
+        public async Task<IActionResult> SignIn([FromBody] SignInDto dto)
         {
             try
             {
@@ -34,7 +35,7 @@ namespace medibook_API.Controllers
                     return BadRequest("Email and password are required.");
                 }
 
-                var result = await authRepository.LoginAsync(dto);
+                var result = await authRepository.SignInAsync(dto);
 
                 if (string.IsNullOrEmpty(result.Token))
                 {
@@ -53,10 +54,10 @@ namespace medibook_API.Controllers
         }
 
         // POST: /api/Auth/logout
-        [HttpPost("logout")]
+        [HttpPost("SignOut")]
         [ProducesResponseType((int)HttpStatusCode.OK)]
         [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
-        public IActionResult Logout()
+        public IActionResult SignOut()
         {
             try
             {
@@ -70,5 +71,38 @@ namespace medibook_API.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+
+        // NEW: Send verification code
+        [HttpPost("send-verification")]
+        public async Task<IActionResult> SendVerificationCode([FromBody] VerificationRequestDto dto)
+        {
+            if (string.IsNullOrEmpty(dto.email))
+                return BadRequest("Email is required.");
+
+            var code = await authRepository.VerifyCode(dto);
+
+            return Ok(new
+            {
+                Message = "Verification code sent successfully",
+            });
+        }
+
+        [HttpPost("forget-password")]
+        public async Task<IActionResult> ForgetPassword([FromBody] ForgetPasswordDto dto)
+        {
+            if (dto == null)
+                return BadRequest("Invalid request");
+
+            var result = await authRepository.ForgetPasswordAsync(dto);
+
+            if (!result)
+                return BadRequest("Failed to reset password. Make sure the passwords match and the user exists.");
+
+            return Ok(new
+            {
+                Message = "Password changed successfully"
+            });
+        }
+
     }
 }
