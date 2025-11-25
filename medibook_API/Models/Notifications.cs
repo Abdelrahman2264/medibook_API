@@ -18,11 +18,16 @@ namespace medibook_API.Models
         public DateTime create_date { get; set; } = DateTime.Now;
         public DateTime read_date { get; set; } = DateTime.Now;
 
-        [ForeignKey("Users")]
+        [ForeignKey("SendUsers")]
         [Column(TypeName = "INT")]
         [Required]
-        public int user_id { get; set; }
-        public Users Users { get; set; }
+        public int sender_user_id { get; set; }
+        public Users SendUsers { get; set; }
+        [ForeignKey("RecieverUsers")]
+        [Column(TypeName = "INT")]
+        [Required]
+        public int reciever_user_id { get; set; }
+        public Users RecieverUsers { get; set; }
 
     }
 }

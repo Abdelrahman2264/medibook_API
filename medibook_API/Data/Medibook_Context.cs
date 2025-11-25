@@ -199,11 +199,16 @@ namespace medibook_API.Data
                 .HasColumnType("datetime2(0)")
                 .HasDefaultValueSql("(sysdatetime())")
                 .HasColumnName("create_date");
-               entity.HasOne(e => e.Users).WithMany(d => d.Notifications)
-              .HasForeignKey(e => e.user_id)
+               entity.HasOne(e => e.SendUsers).WithMany(d => d.SendNotifications)
+              .HasForeignKey(e => e.sender_user_id)
               .IsRequired()
               .OnDelete(DeleteBehavior.NoAction)
-              .HasConstraintName("FK_User_Notification");
+              .HasConstraintName("FK_User_SenderNotification");
+               entity.HasOne(e => e.RecieverUsers).WithMany(d => d.RecieveNotifications)
+              .HasForeignKey(e => e.reciever_user_id)
+              .IsRequired()
+              .OnDelete(DeleteBehavior.NoAction)
+              .HasConstraintName("FK_User_RecieveNotification");
 
                entity.Property(e => e.read_date)
                 .HasColumnType("datetime2(0)")
@@ -303,12 +308,12 @@ namespace medibook_API.Data
                .HasConstraintName("FK_Doctor_Appointment");
                entity.HasOne(e => e.Nurses).WithMany(d => d.Appointments)
                .HasForeignKey(e => e.nurse_id)
-               .IsRequired()
+               .IsRequired(false)
                .OnDelete(DeleteBehavior.NoAction)
                .HasConstraintName("FK_Nurse_Appointment");
                entity.HasOne(e => e.Rooms).WithMany(d => d.Appointments)
                .HasForeignKey(e => e.room_id)
-               .IsRequired()
+               .IsRequired(false)
                .OnDelete(DeleteBehavior.NoAction)
                .HasConstraintName("FK_Room_Appointment");
            });
@@ -332,11 +337,11 @@ namespace medibook_API.Data
                entity.Property(e => e.feedback_date)
                 .HasColumnType("datetime2(0)")
                 .HasDefaultValueSql("(sysdatetime())")
-                .HasColumnName("create_date");
+                .HasColumnName("feedback_date");
                entity.Property(e => e.reply_date)
                 .HasColumnType("datetime2(0)")
-                .IsRequired()
-                .HasColumnName("appointment_date");
+                .IsRequired(false)
+                .HasColumnName("reply_date");
                entity.Property(e => e.rate)
                .IsRequired()
                .HasColumnName("rate");

@@ -7,43 +7,52 @@ using Microsoft.EntityFrameworkCore;
 
 namespace medibook_API.Extensions.Repositories
 {
-    
     public class UserRepository : IUserRepository
     {
         private readonly Medibook_Context database;
         private readonly ILogger<UserRepository> logger;
         private readonly StringNormalizer stringNormalizer;
         private readonly IPasswordHasherRepository passwordHasher;
+        private readonly ILogRepository logRepository;
 
-        public UserRepository(Medibook_Context database,
+        public UserRepository(
+            Medibook_Context database,
             ILogger<UserRepository> logger,
             StringNormalizer stringNormalizer,
-            IPasswordHasherRepository passwordHasher)
+            IPasswordHasherRepository passwordHasher,
+            ILogRepository logRepository)
         {
             this.database = database;
             this.logger = logger;
             this.stringNormalizer = stringNormalizer;
             this.passwordHasher = passwordHasher;
+            this.logRepository = logRepository;
         }
         public async Task<bool> ActiveUserAsync(int id)
         {
             try
             {
                 var user = await database.Users.FirstOrDefaultAsync(r => r.user_id == id);
+
                 if (user == null)
                 {
-                    logger.LogWarning("ActiveUserAsync: User with ID {UserId} not found.", id);
+                    logger.LogWarning("ActiveUserAsync: User {UserId} not found.", id);
+                    await logRepository.CreateLogAsync("Activate User", "Error", $"User {id} not found.");
                     return false;
                 }
+
                 user.is_active = true;
-                database.Users.Update(user);
                 await database.SaveChangesAsync();
-                logger.LogInformation("ActiveUserAsync: User with ID {UserId} deactivated successfully.", id);
+
+                logger.LogInformation("ActiveUserAsync: User {UserId} activated successfully.", id);
+                await logRepository.CreateLogAsync("Activate User", "Success", $"User {id} activated.");
+
                 return true;
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "ActiveUserAsync: An error occurred while deactivating the user.");
+                logger.LogError(ex, "ActiveUserAsync error");
+                await logRepository.CreateLogAsync("Activate User", "Error", ex.Message);
                 return false;
             }
         }
@@ -53,25 +62,23 @@ namespace medibook_API.Extensions.Repositories
             try
             {
                 var role = await database.Roles.FirstOrDefaultAsync(u => u.role_name == "user");
+
                 if (role == null)
                 {
-                    logger.LogWarning("User Role Is Not Found");
-                    CreatedResponseDto response = new CreatedResponseDto
-                    {
-                        Message = "User Role Is Not Found"
-                    };
-                    return response;
+                    logger.LogWarning("User role not found");
+                    await logRepository.CreateLogAsync("Create User", "Error", "User role not found");
 
+                    return new CreatedResponseDto { Message = "User role not found" };
                 }
+
                 if (dto == null)
                 {
-                    logger.LogWarning("User Data Is Invaild");
-                    CreatedResponseDto response = new CreatedResponseDto
-                    {
-                        Message = "Invaild Data User Is Required"
-                    };
-                    return response;
+                    logger.LogWarning("Invalid user data");
+                    await logRepository.CreateLogAsync("Create User", "Error", "Invalid user data");
+
+                    return new CreatedResponseDto { Message = "Invalid user data" };
                 }
+
                 var user = new Users
                 {
                     first_name = stringNormalizer.NormalizeName(dto.FirstName),
@@ -88,8 +95,15 @@ namespace medibook_API.Extensions.Repositories
                     profile_image = dto.ProfileImage
                 };
 
-                var userEntry = await database.Users.AddAsync(user);
+                await database.Users.AddAsync(user);
                 await database.SaveChangesAsync();
+
+                await logRepository.CreateLogAsync(
+                    "Create User",
+                    "Success",
+                    $"User {user.first_name} {user.last_name} created"
+                );
+
                 return new CreatedResponseDto
                 {
                     UserId = user.user_id,
@@ -98,10 +112,164 @@ namespace medibook_API.Extensions.Repositories
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error occurred while creating a new user.");
+                logger.LogError(ex, "CreateUserAsync error");
+                await logRepository.CreateLogAsync("Create User", "Error", ex.Message);
                 throw;
             }
         }
+        public async Task<IEnumerable<UserDetailsDto>> GetAllActiveUsersAsync()
+        {
+            try
+            {
+                var users = await database.Users
+                    .Include(r => r.Role)
+                    .Where(u => u.is_active)
+                    .ToListAsync();
+
+                await logRepository.CreateLogAsync("Get Active Users", "Success", "Retrieved active users list");
+
+                return users.Select(MapToUserDetailsDto);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "GetAllActiveUsersAsync error");
+                await logRepository.CreateLogAsync("Get Active Users", "Error", ex.Message);
+                return Enumerable.Empty<UserDetailsDto>();
+            }
+        }
+        public async Task<IEnumerable<UserDetailsDto>> GetAllUsersAsync()
+        {
+            try
+            {
+                var users = await database.Users
+                    .Include(r => r.Role)
+                    .ToListAsync();
+
+                await logRepository.CreateLogAsync("Get All Users", "Success", "Retrieved all users");
+
+                return users.Select(MapToUserDetailsDto);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "GetAllUsersAsync error");
+                await logRepository.CreateLogAsync("Get All Users", "Error", ex.Message);
+                return Enumerable.Empty<UserDetailsDto>();
+            }
+        }
+        public async Task<UserDetailsDto> GetUserByIdAsync(int id)
+        {
+            try
+            {
+                var user = await database.Users
+                    .Include(u => u.Role)
+                    .FirstOrDefaultAsync(u => u.user_id == id);
+
+                if (user == null)
+                {
+                    await logRepository.CreateLogAsync("Get User By Id", "Error", $"User {id} not found");
+                    return null;
+                }
+
+                await logRepository.CreateLogAsync("Get User By Id", "Success", $"User {id} retrieved");
+
+                return MapToUserDetailsDto(user);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "GetUserByIdAsync error");
+                await logRepository.CreateLogAsync("Get User By Id", "Error", ex.Message);
+                return null;
+            }
+        }
+        public async Task<bool> InActiveUserAsync(int id)
+        {
+            try
+            {
+                var user = await database.Users.FirstOrDefaultAsync(r => r.user_id == id);
+
+                if (user == null)
+                {
+                    await logRepository.CreateLogAsync("Deactivate User", "Error", $"User {id} not found");
+                    return false;
+                }
+
+                user.is_active = false;
+                await database.SaveChangesAsync();
+
+                await logRepository.CreateLogAsync("Deactivate User", "Success", $"User {id} deactivated");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "InActiveUserAsync error");
+                await logRepository.CreateLogAsync("Deactivate User", "Error", ex.Message);
+                return false;
+            }
+        }
+
+        public async Task<bool> IsEmailExistAsync(string email, int id)
+        {
+            try
+            {
+                bool exists = await database.Users
+                    .AnyAsync(u => u.email.ToLower() == email.ToLower() && u.user_id != id);
+
+                return exists;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "IsEmailExistAsync error");
+                await logRepository.CreateLogAsync("Check Email Exists", "Error", ex.Message);
+                return true;
+            }
+        }
+        public async Task<bool> IsPhoneExistAsync(string phone, int id)
+        {
+            try
+            {
+                bool exists = await database.Users
+                    .AnyAsync(u => u.mobile_phone == phone && u.user_id != id);
+
+                return exists;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "IsPhoneExistAsync error");
+                await logRepository.CreateLogAsync("Check Phone Exists", "Error", ex.Message);
+                return true;
+            }
+        }
+        public async Task<UserDetailsDto> UpdateUserAsync(UpdateUserDto dto, int id)
+        {
+            try
+            {
+                var user = await database.Users.FirstOrDefaultAsync(u => u.user_id == id);
+
+                if (user == null)
+                {
+                    await logRepository.CreateLogAsync("Update User", "Error", $"User {id} not found");
+                    return null;
+                }
+
+                if (!string.IsNullOrEmpty(dto.FirstName)) user.first_name = dto.FirstName;
+                if (!string.IsNullOrEmpty(dto.LastName)) user.last_name = dto.LastName;
+                if (!string.IsNullOrEmpty(dto.MobilePhone)) user.mobile_phone = dto.MobilePhone;
+                if (dto.ProfileImage != null) user.profile_image = dto.ProfileImage;
+
+                await database.SaveChangesAsync();
+
+                await logRepository.CreateLogAsync("Update User", "Success", $"User {id} updated");
+
+                return MapToUserDetailsDto(user);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "UpdateUserAsync error");
+                await logRepository.CreateLogAsync("Update User", "Error", ex.Message);
+                return null;
+            }
+        }
+
 
         private UserDetailsDto MapToUserDetailsDto(Users d)
         {
@@ -116,196 +284,8 @@ namespace medibook_API.Extensions.Repositories
                 ProfileImage = d.profile_image,
                 DateOfBirth = d.date_of_birth,
                 CreateDate = d.create_date,
-                IsActive = d.is_active,
+                IsActive = d.is_active
             };
-        }
-
-        public async Task<IEnumerable<UserDetailsDto>> GetAllActiveUsersAsync()
-        {
-            try
-            {
-                logger.LogInformation("Fetching all active users with user data...");
-
-                var users = await database.Users
-                    .Include(d => d.Role)
-                    .Where(u => u.is_active)
-                    .ToListAsync();
-
-                if (!users.Any())
-                {
-                    logger.LogWarning("No active users found in the system.");
-                }
-                else
-                {
-                    logger.LogInformation("Successfully retrieved {Count}active users.", users.Count);
-                }
-
-                return users.Select(MapToUserDetailsDto);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Error occurred while retrieving all active users.");
-                return Enumerable.Empty<UserDetailsDto>();
-            }
-        }
-
-        public async Task<IEnumerable<UserDetailsDto>> GetAllUsersAsync()
-        {
-            try
-            {
-                logger.LogInformation("Fetching all users with user data...");
-
-                var users = await database.Users
-                    .Include(d => d.Role)
-                    .ToListAsync();
-
-                if (!users.Any())
-                {
-                    logger.LogWarning("No users found in the system.");
-                }
-                else
-                {
-                    logger.LogInformation("Successfully retrieved {Count} users.", users.Count);
-                }
-
-                return users.Select(MapToUserDetailsDto);
-            }
-
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Error occurred while retrieving all users.");
-                return Enumerable.Empty<UserDetailsDto>();
-            }
-        }
-
-        public async Task<UserDetailsDto> GetUserByIdAsync(int id)
-        {
-            try
-            {
-                logger.LogInformation("Fetching user data...");
-
-                var user = await database.Users
-                    .Include(d => d.Role)
-                    .FirstOrDefaultAsync(u => u.user_id == id);
-
-                if (user == null)
-                {
-                    logger.LogWarning("No user found in the system.");
-                    return null;
-                }
-                else
-                {
-                    logger.LogInformation("Successfully retrieved  user.");
-                }
-
-                return MapToUserDetailsDto(user);
-            }
-
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Error occurred while retrieving  user.");
-                return null;
-            }
-        }
-
-        public async Task<bool> InActiveUserAsync(int id)
-        {
-            try
-            {
-                var user = await database.Users.FirstOrDefaultAsync(r => r.user_id == id);
-                if (user == null)
-                {
-                    logger.LogWarning("InactiveUSerAsync: User with ID {UserId} not found.", id);
-                    return false;
-                }
-                user.is_active = false;
-                database.Users.Update(user);
-                await database.SaveChangesAsync();
-                logger.LogInformation("InactiveUserAsync: User with ID {UserId} deactivated successfully.", id);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "InactiveUserAsync: An error occurred while deactivating the user.");
-                return false;
-            }
-        }
-
-        public async Task<bool> IsEmailExistAsync(string email, int id)
-        {
-            try
-            {
-                var user = await database.Users.FirstOrDefaultAsync(u => u.email.ToLower() == email.ToLower() && u.user_id != id);
-                if (user == null)
-                {
-                    return false;
-                }
-                return true;
-
-            }
-            catch (Exception ex)
-            {
-                logger.LogError($"Error in check if email exist {ex.Message}");
-                return true;
-            }
-        }
-
-        public async Task<bool> IsPhoneExistAsync(string phone, int id)
-        {
-            try
-            {
-                var user = await database.Users.FirstOrDefaultAsync(u => u.mobile_phone == phone && u.user_id != id);
-                if (user == null)
-                {
-                    return false;
-                }
-                return true;
-
-            }
-            catch (Exception ex)
-            {
-                logger.LogError($"Error in check if phone number exist {ex.Message}");
-                return true;
-            }
-        }
-
-        public async Task<UserDetailsDto> UpdateUserAsync(UpdateUserDto dto, int id)
-        {
-            try
-            {
-                var user = await database.Users
-                    .Include(d => d.Role)
-                    .FirstOrDefaultAsync(d => d.user_id == id);
-
-                if (user == null)
-                {
-                    logger.LogWarning($"user with ID {id} not found.");
-                    return null;
-                }
-
-                if (!string.IsNullOrEmpty(dto.FirstName))
-                    user.first_name = dto.FirstName;
-
-                if (!string.IsNullOrEmpty(dto.LastName))
-                    user.last_name = dto.LastName;
-
-                if (!string.IsNullOrEmpty(dto.MobilePhone))
-                    user.mobile_phone = dto.MobilePhone;
-
-                if (dto.ProfileImage != null)
-                    user.profile_image = dto.ProfileImage;
-
-                await database.SaveChangesAsync();
-
-                logger.LogInformation($"user with ID {id} updated successfully.");
-
-                return MapToUserDetailsDto(user);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, $"Error updating user with ID {id}");
-                return null;
-            }
         }
     }
 }

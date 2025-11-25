@@ -15,8 +15,8 @@ namespace medibook_API.Models
         public string comment { get; set; } = string.Empty;
         public int rate { get; set; } 
          public DateTime feedback_date { get; set; } = DateTime.Now;
-        public string  doctor_reply { get; set; } = string.Empty;
-        public DateTime reply_date { get; set; } 
+        public string? doctor_reply { get; set; } = string.Empty;
+        public DateTime? reply_date { get; set; } 
         public bool is_favourite { get; set; } = false;
 
         [ForeignKey("Patients")]

@@ -8,13 +8,13 @@ namespace medibook_API.Extensions.Repositories
 {
     public class RoomRepository : IRoomRepository
     {
-
         private readonly Medibook_Context database;
         private readonly ILogger<RoomRepository> logger;
         private readonly StringNormalizer stringNormalizer;
         private readonly ILogRepository logRepository;
 
-        public RoomRepository(Medibook_Context database,
+        public RoomRepository(
+            Medibook_Context database,
             ILogger<RoomRepository> logger,
             StringNormalizer stringNormalizer,
             ILogRepository logRepository)
@@ -24,54 +24,67 @@ namespace medibook_API.Extensions.Repositories
             this.stringNormalizer = stringNormalizer;
             this.logRepository = logRepository;
         }
-
-
         public async Task<bool> ActiveRoomAsync(int roomId)
         {
             try
             {
                 var room = await database.Rooms.FirstOrDefaultAsync(r => r.room_id == roomId);
+
                 if (room == null)
                 {
-                    logger.LogWarning("ActiveRoomAsync: Room with ID {RoomId} not found.", roomId);
+                    string message = $"Room with ID {roomId} not found.";
+                    logger.LogWarning(message);
+                    await logRepository.CreateLogAsync("Activate Room", "Warning", message);
                     return false;
                 }
+
                 room.is_active = true;
                 database.Rooms.Update(room);
                 await database.SaveChangesAsync();
-                logger.LogInformation("ActiveRoomAsync: Room with ID {RoomId} Activated successfully.", roomId);
-                return true;
 
+                string successMsg = $"Room with ID {roomId} activated successfully.";
+                logger.LogInformation(successMsg);
+                await logRepository.CreateLogAsync("Activate Room", "Success", successMsg);
+
+                return true;
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "ActiveRoomAsync: An error occurred while Activating the room.");
+                logger.LogError(ex, "Error occurred while activating room.");
+                await logRepository.CreateLogAsync("Activate Room", "Error", ex.Message);
                 return false;
             }
         }
-
         public async Task<Rooms> CreateRoomAsync(Rooms room)
         {
             try
             {
                 if (room == null)
                 {
-                    logger.LogWarning("CreateRoomAsync: room parameter is null.");
+                    string msg = "CreateRoomAsync: Room object is null.";
+                    logger.LogWarning(msg);
+                    await logRepository.CreateLogAsync("Create Room", "Warning", msg);
                     return new Rooms();
                 }
+
                 room.room_name = stringNormalizer.NormalizeName(room.room_name);
                 room.room_type = stringNormalizer.NormalizeName(room.room_type);
                 room.is_active = true;
                 room.create_date = DateTime.Now;
+
                 await database.Rooms.AddAsync(room);
-                await logRepository.CreateLogAsync("Create", "Success", $"Room {room.room_name} of type {room.room_type} created.");
                 await database.SaveChangesAsync();
-                logger.LogInformation("CreateRoomAsync: Room created successfully with ID {RoomId}.", room.room_id);
+
+                string successMsg = $"Room '{room.room_name}' of type '{room.room_type}' created successfully.";
+                logger.LogInformation(successMsg);
+                await logRepository.CreateLogAsync("Create Room", "Success", successMsg);
+
                 return room;
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "CreateRoomAsync: An error occurred while creating the room.");
+                logger.LogError(ex, "Error creating room.");
+                await logRepository.CreateLogAsync("Create Room", "Error", ex.Message);
                 return new Rooms();
             }
         }
@@ -80,111 +93,126 @@ namespace medibook_API.Extensions.Repositories
         {
             try
             {
-                if (roomId <= 0)
-                {
-                    logger.LogWarning("Room Id Is Not Vaild");
-                    return false;
-                }
-                var room = await database.Rooms.FirstOrDefaultAsync(u => u.room_id == roomId);
+                var room = await database.Rooms.FirstOrDefaultAsync(r => r.room_id == roomId);
+
                 if (room == null)
                 {
-                    logger.LogWarning($"Room with id {roomId} is not found");
+                    string msg = $"Room with ID {roomId} not found.";
+                    logger.LogWarning(msg);
+                    await logRepository.CreateLogAsync("Delete Room", "Warning", msg);
                     return false;
                 }
+
                 database.Rooms.Remove(room);
                 await database.SaveChangesAsync();
-                return true;
 
+                string successMsg = $"Room with ID {roomId} deleted successfully.";
+                logger.LogInformation(successMsg);
+                await logRepository.CreateLogAsync("Delete Room", "Success", successMsg);
+
+                return true;
             }
             catch (Exception ex)
             {
-                logger.LogError("Error while delete a room {ex}", ex);
+                logger.LogError(ex, "Error deleting room.");
+                await logRepository.CreateLogAsync("Delete Room", "Error", ex.Message);
                 return false;
-
-
             }
         }
-
         public async Task<IEnumerable<Rooms>> GetALlActiveAsync()
         {
             try
             {
-                return await database.Rooms
+                var list = await database.Rooms
                     .Where(r => r.is_active)
                     .OrderBy(r => r.room_name)
                     .ToListAsync();
 
+                await logRepository.CreateLogAsync("Get Active Rooms", "Success", "Active rooms retrieved successfully.");
+
+                return list;
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "GetALlActiveAsync: An error occurred while retrieving active rooms.");
+                logger.LogError(ex, "Error retrieving active rooms.");
+                await logRepository.CreateLogAsync("Get Active Rooms", "Error", ex.Message);
                 return Enumerable.Empty<Rooms>();
             }
-
         }
-
         public async Task<IEnumerable<Rooms>> GetALlRoomsAsync()
         {
             try
             {
-                return await database.Rooms
+                var list = await database.Rooms
                     .OrderBy(r => r.room_name)
                     .ToListAsync();
 
+                await logRepository.CreateLogAsync("Get Rooms", "Success", "Rooms retrieved successfully.");
+
+                return list;
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "GetAllRomsAsync: An error occurred while retrieving rooms.");
+                logger.LogError(ex, "Error retrieving rooms.");
+                await logRepository.CreateLogAsync("Get Rooms", "Error", ex.Message);
                 return Enumerable.Empty<Rooms>();
             }
         }
-
         public async Task<Rooms> GetRoomByIdAsync(int id)
         {
             try
             {
                 var room = await database.Rooms.FirstOrDefaultAsync(r => r.room_id == id);
+
                 if (room == null)
                 {
-                    logger.LogWarning("GetRoomByIdAsync: Room with ID {RoomId} not found.", id);
+                    string msg = $"Room with ID {id} not found.";
+                    logger.LogWarning(msg);
+                    await logRepository.CreateLogAsync("Get Room By ID", "Warning", msg);
                     return new Rooms();
                 }
-                return room;
 
+                await logRepository.CreateLogAsync("Get Room By ID", "Success", $"Room with ID {id} retrieved.");
+                return room;
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "GetRoomByIdAsync: An error occurred while retrieving the room by ID.");
+                logger.LogError(ex, "Error retrieving room by ID.");
+                await logRepository.CreateLogAsync("Get Room By ID", "Error", ex.Message);
                 return new Rooms();
             }
-
         }
-
         public async Task<bool> InactiveRoomAsync(int roomId)
         {
             try
             {
                 var room = await database.Rooms.FirstOrDefaultAsync(r => r.room_id == roomId);
+
                 if (room == null)
                 {
-                    logger.LogWarning("InactiveRoomAsync: Room with ID {RoomId} not found.", roomId);
+                    string msg = $"Room with ID {roomId} not found.";
+                    logger.LogWarning(msg);
+                    await logRepository.CreateLogAsync("Inactive Room", "Warning", msg);
                     return false;
                 }
+
                 room.is_active = false;
                 database.Rooms.Update(room);
                 await database.SaveChangesAsync();
-                logger.LogInformation("InactiveRoomAsync: Room with ID {RoomId} deactivated successfully.", roomId);
-                return true;
 
+                string successMsg = $"Room with ID {roomId} deactivated successfully.";
+                logger.LogInformation(successMsg);
+                await logRepository.CreateLogAsync("Inactive Room", "Success", successMsg);
+
+                return true;
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "InactiveRoomAsync: An error occurred while deactivating the room.");
+                logger.LogError(ex, "Error deactivating room.");
+                await logRepository.CreateLogAsync("Inactive Room", "Error", ex.Message);
                 return false;
             }
         }
-
-
         public async Task<bool> IsRoomExist(string name, string type, int id)
         {
             try
@@ -192,61 +220,59 @@ namespace medibook_API.Extensions.Repositories
                 var normalizedName = stringNormalizer.NormalizeName(name);
                 var normalizedType = stringNormalizer.NormalizeName(type);
 
-                IQueryable<Rooms> query = database.Rooms
+                var query = database.Rooms
                     .Where(r => r.room_name == normalizedName &&
                                 r.room_type == normalizedType);
+
                 if (id != 0)
-                {
                     query = query.Where(r => r.room_id != id);
-                }
 
-                var room = await query.FirstOrDefaultAsync();
+                bool exists = await query.AnyAsync();
 
-                bool exists = room != null;
-
-                logger.LogInformation(
-                    "IsRoomExist: Room with name {RoomName} and type {RoomType} existence: {Exists}",
-                    name, type, exists
-                );
+                await logRepository.CreateLogAsync("Check Room Exists", "Success",
+                    $"Room exist check: Name={name}, Type={type}, Exists={exists}");
 
                 return exists;
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "IsRoomExist: An error occurred while checking if the room exists.");
+                logger.LogError(ex, "Error checking room existence.");
+                await logRepository.CreateLogAsync("Check Room Exists", "Error", ex.Message);
                 return false;
             }
         }
-
-
         public async Task<Rooms> UpdateRoomAsync(Rooms room)
         {
             try
             {
-                if (room == null)
-                {
-                    logger.LogWarning("UpdateRoomAsync: room parameter is null.");
-                    return new Rooms();
-                }
                 var existingRoom = await database.Rooms.FirstOrDefaultAsync(r => r.room_id == room.room_id);
+
                 if (existingRoom == null)
                 {
-                    logger.LogWarning("UpdateRoomAsync: Room with ID {RoomId} not found.", room.room_id);
+                    string msg = $"Room with ID {room.room_id} not found.";
+                    logger.LogWarning(msg);
+                    await logRepository.CreateLogAsync("Update Room", "Warning", msg);
                     return new Rooms();
                 }
+
                 existingRoom.room_name = stringNormalizer.NormalizeName(room.room_name);
                 existingRoom.room_type = stringNormalizer.NormalizeName(room.room_type);
                 existingRoom.is_active = room.is_active;
                 existingRoom.create_date = room.create_date;
+
                 database.Rooms.Update(existingRoom);
                 await database.SaveChangesAsync();
-                logger.LogInformation("UpdateRoomAsync: Room with ID {RoomId} updated successfully.", room.room_id);
-                return existingRoom;
 
+                string successMsg = $"Room with ID {room.room_id} updated successfully.";
+                logger.LogInformation(successMsg);
+                await logRepository.CreateLogAsync("Update Room", "Success", successMsg);
+
+                return existingRoom;
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "UpdateRoomAsync: An error occurred while updating the room.");
+                logger.LogError(ex, "Error updating room.");
+                await logRepository.CreateLogAsync("Update Room", "Error", ex.Message);
                 return new Rooms();
             }
         }

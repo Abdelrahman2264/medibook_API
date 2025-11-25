@@ -54,7 +54,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<ILogRepository, LogRepository>();
 builder.Services.AddScoped<INurseRepository, NurseRepository>();
-builder.Services.AddScoped<IDoctorRepository, DoctorRepositroy>();
+builder.Services.AddScoped<IDoctorRepository, DoctorRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
 builder.Services.AddScoped<IFeedBackRepository, FeedBackRepository>();
@@ -67,6 +67,7 @@ builder.Services.AddScoped<StringNormalizer>();
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<EmailServices>();
 builder.Services.AddScoped<IUserContextService, UserContextService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 // Enable CORS
 builder.Services.AddCors(options =>

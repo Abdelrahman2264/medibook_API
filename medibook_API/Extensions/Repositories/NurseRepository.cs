@@ -9,22 +9,25 @@ namespace medibook_API.Extensions.Repositories
 {
     public class NurseRepository : INurseRepository
     {
-
         private readonly Medibook_Context database;
         private readonly ILogger<NurseRepository> logger;
         private readonly StringNormalizer stringNormalizer;
         private readonly IPasswordHasherRepository passwordHasher;
-        public NurseRepository(Medibook_Context database,
+        private readonly ILogRepository logRepository;
+
+        public NurseRepository(
+            Medibook_Context database,
             ILogger<NurseRepository> logger,
             StringNormalizer stringNormalizer,
-            IPasswordHasherRepository passwordHasher)
+            IPasswordHasherRepository passwordHasher,
+            ILogRepository logRepository)
         {
             this.database = database;
             this.logger = logger;
             this.stringNormalizer = stringNormalizer;
             this.passwordHasher = passwordHasher;
+            this.logRepository = logRepository;
         }
-
 
         public async Task<CreatedResponseDto> CreateNurseAsync(CreateNurseDto dto)
         {
@@ -35,11 +38,11 @@ namespace medibook_API.Extensions.Repositories
 
                 if (role == null)
                 {
-                    logger.LogError("Nurse role not found in the database.");
-                    return new CreatedResponseDto
-                    {
-                        Message = "Nurse role not found"
-                    };
+                    string msg = "Nurse role not found in database.";
+                    logger.LogError(msg);
+                    await logRepository.CreateLogAsync("Create Nurse", "Error", msg);
+
+                    return new CreatedResponseDto { Message = msg };
                 }
 
                 var user = new Users
@@ -59,61 +62,56 @@ namespace medibook_API.Extensions.Repositories
                     role_id = role.role_id
                 };
 
-                var userEntry = await database.Users.AddAsync(user);
+                await database.Users.AddAsync(user);
                 await database.SaveChangesAsync();
 
-                int newUserId = userEntry.Entity.user_id;
-
-                var Nurse = new Nurses
+                var nurse = new Nurses
                 {
-                    user_id = newUserId,
-                    bio = dto.Bio,
-
+                    user_id = user.user_id,
+                    bio = dto.Bio
                 };
 
-                var nurseEntry = await database.Nurses.AddAsync(Nurse);
+                await database.Nurses.AddAsync(nurse);
                 await database.SaveChangesAsync();
+
+                string successMsg = $"Nurse {user.first_name} {user.last_name} created successfully.";
+                await logRepository.CreateLogAsync("Create Nurse", "Success", successMsg);
+                logger.LogInformation(successMsg);
 
                 return new CreatedResponseDto
                 {
-                    UserId = newUserId,
-                    TypeId = nurseEntry.Entity.nurse_id,
-                    Message = "Nurse created successfully"
+                    UserId = user.user_id,
+                    TypeId = nurse.nurse_id,
+                    Message = successMsg
                 };
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "An error occurred while creating a new nurse.");
-                return new CreatedResponseDto
-                {
-                    Message = "Error while creating nurse"
-                };
+                logger.LogError(ex, "Error creating nurse");
+                await logRepository.CreateLogAsync("Create Nurse", "Error", ex.Message);
+
+                return new CreatedResponseDto { Message = ex.Message };
             }
         }
         public async Task<IEnumerable<NurseDetailsDto>> GetAllNursesAsync()
         {
             try
             {
-                logger.LogInformation("Fetching all nurses with user data...");
-
                 var nurses = await database.Nurses
-                    .Include(d => d.Users)
+                    .Include(n => n.Users)
                     .ToListAsync();
 
-                if (!nurses.Any())
-                {
-                    logger.LogWarning("No nurses found in the system.");
-                }
-                else
-                {
-                    logger.LogInformation("Successfully retrieved {Count} nurses.", nurses.Count);
-                }
+                string msg = $"Fetched {nurses.Count} nurses.";
+                logger.LogInformation(msg);
+                await logRepository.CreateLogAsync("Get All Nurses", "Success", msg);
 
                 return nurses.Select(MapToNurseDetailsDto);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error occurred while retrieving all doctors.");
+                logger.LogError(ex, "Error retrieving all nurses");
+                await logRepository.CreateLogAsync("Get All Nurses", "Error", ex.Message);
+
                 return Enumerable.Empty<NurseDetailsDto>();
             }
         }
@@ -121,70 +119,52 @@ namespace medibook_API.Extensions.Repositories
         {
             try
             {
-                logger.LogInformation("Fetching all ACTIVE nurses with user data...");
-
                 var nurses = await database.Nurses
-                    .Include(d => d.Users)
-                    .Where(d => d.Users.is_active)
+                    .Include(n => n.Users)
+                    .Where(n => n.Users.is_active)
                     .ToListAsync();
 
-                if (!nurses.Any())
-                {
-                    logger.LogWarning("No active nurses found.");
-                }
-                else
-                {
-                    logger.LogInformation("Successfully retrieved {Count} nurses.", nurses.Count);
-                }
+                string msg = $"Fetched {nurses.Count} active nurses.";
+                logger.LogInformation(msg);
+                await logRepository.CreateLogAsync("Get Active Nurses", "Success", msg);
 
                 return nurses.Select(MapToNurseDetailsDto);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error occurred while retrieving active nurses.");
+                logger.LogError(ex, "Error retrieving active nurses");
+                await logRepository.CreateLogAsync("Get Active Nurses", "Error", ex.Message);
+
                 return Enumerable.Empty<NurseDetailsDto>();
             }
-        }
-        private NurseDetailsDto MapToNurseDetailsDto(Nurses d)
-        {
-            return new NurseDetailsDto
-            {
-                UserId = d.Users.user_id,
-                FirstName = d.Users.first_name,
-                LastName = d.Users.last_name,
-                Email = d.Users.email,
-                MobilePhone = d.Users.mobile_phone,
-                Gender = d.Users.gender,
-                ProfileImage = d.Users.profile_image,
-                DateOfBirth = d.Users.date_of_birth,
-                CreateDate = d.Users.create_date,
-                IsActive = d.Users.is_active,
-                Bio = d.bio
-            };
         }
         public async Task<NurseDetailsDto> GetNurseByIdAsync(int id)
         {
             try
             {
-                logger.LogInformation("Fetching nurse with ID {NurseId} including user data...", id);
-
                 var nurse = await database.Nurses
-                    .Include(d => d.Users)
-                    .FirstOrDefaultAsync(d => d.nurse_id == id);
+                    .Include(n => n.Users)
+                    .FirstOrDefaultAsync(n => n.nurse_id == id);
 
                 if (nurse == null)
                 {
-                    logger.LogWarning("nurse with ID {NurseId} was not found.", id);
+                    string msg = $"Nurse with ID {id} not found.";
+                    logger.LogWarning(msg);
+                    await logRepository.CreateLogAsync("Get Nurse By ID", "Error", msg);
                     return null;
                 }
 
-                logger.LogInformation("Nurse with ID {NurseId} retrieved successfully.", id);
+                string successMsg = $"Nurse with ID {id} retrieved.";
+                logger.LogInformation(successMsg);
+                await logRepository.CreateLogAsync("Get Nurse By ID", "Success", successMsg);
+
                 return MapToNurseDetailsDto(nurse);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "An error occurred while retrieving doctor with ID {DoctorId}.", id);
-                throw;
+                logger.LogError(ex, $"Error retrieving nurse with ID {id}");
+                await logRepository.CreateLogAsync("Get Nurse By ID", "Error", ex.Message);
+                return null;
             }
         }
         public async Task<NurseDetailsDto> UpdateNurseAsync(int id, UpdateNurseDto dto)
@@ -192,12 +172,14 @@ namespace medibook_API.Extensions.Repositories
             try
             {
                 var nurse = await database.Nurses
-                    .Include(d => d.Users)
-                    .FirstOrDefaultAsync(d => d.nurse_id == id);
+                    .Include(n => n.Users)
+                    .FirstOrDefaultAsync(n => n.nurse_id == id);
 
                 if (nurse == null)
                 {
-                    logger.LogWarning($"Nurse with ID {id} not found.");
+                    string msg = $"Nurse with ID {id} not found.";
+                    logger.LogWarning(msg);
+                    await logRepository.CreateLogAsync("Update Nurse", "Error", msg);
                     return null;
                 }
 
@@ -218,16 +200,35 @@ namespace medibook_API.Extensions.Repositories
 
                 await database.SaveChangesAsync();
 
-                logger.LogInformation($"Nurse with ID {id} updated successfully.");
+                string successMsg = $"Nurse with ID {id} updated successfully.";
+                logger.LogInformation(successMsg);
+                await logRepository.CreateLogAsync("Update Nurse", "Success", successMsg);
 
                 return MapToNurseDetailsDto(nurse);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, $"Error updating nurse with ID {id}");
+                await logRepository.CreateLogAsync("Update Nurse", "Error", ex.Message);
                 return null;
             }
         }
-
+        private NurseDetailsDto MapToNurseDetailsDto(Nurses n)
+        {
+            return new NurseDetailsDto
+            {
+                UserId = n.Users.user_id,
+                FirstName = n.Users.first_name,
+                LastName = n.Users.last_name,
+                Email = n.Users.email,
+                MobilePhone = n.Users.mobile_phone,
+                Gender = n.Users.gender,
+                ProfileImage = n.Users.profile_image,
+                DateOfBirth = n.Users.date_of_birth,
+                CreateDate = n.Users.create_date,
+                IsActive = n.Users.is_active,
+                Bio = n.bio
+            };
+        }
     }
 }

@@ -38,7 +38,8 @@ namespace medibook_API.Models
         public ICollection<Nurses> Nurses { get; set; }
         public ICollection<Doctors> Doctors { get; set; }
         public ICollection<Logs> Logs { get; set; }
-        public ICollection<Notifications> Notifications { get; set; }   
+        public ICollection<Notifications> SendNotifications { get; set; }   
+        public ICollection<Notifications> RecieveNotifications { get; set; }   
         public ICollection<Appointments> Appointments { get; set; }   
         public ICollection<FeedBacks> FeedBacks { get; set; }   
     }

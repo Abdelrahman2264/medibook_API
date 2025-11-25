@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using medibook_API.Data;
 
@@ -11,9 +12,11 @@ using medibook_API.Data;
 namespace medibook_API.Migrations
 {
     [DbContext(typeof(Medibook_Context))]
-    partial class Medibook_ContextModelSnapshot : ModelSnapshot
+    [Migration("20251125131454_ADDSENDERRECEIVERNOTIFICATIONS")]
+    partial class ADDSENDERRECEIVERNOTIFICATIONS
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -44,24 +47,26 @@ namespace medibook_API.Migrations
                         .HasColumnType("INT");
 
                     b.Property<string>("medicine")
+                        .IsRequired()
                         .HasMaxLength(500)
                         .IsUnicode(false)
                         .HasColumnType("varchar(500)")
                         .HasColumnName("medicine");
 
                     b.Property<string>("notes")
+                        .IsRequired()
                         .HasMaxLength(500)
                         .IsUnicode(false)
                         .HasColumnType("varchar(500)")
                         .HasColumnName("notes");
 
-                    b.Property<int?>("nurse_id")
+                    b.Property<int>("nurse_id")
                         .HasColumnType("INT");
 
                     b.Property<int>("patient_id")
                         .HasColumnType("INT");
 
-                    b.Property<int?>("room_id")
+                    b.Property<int>("room_id")
                         .HasColumnType("INT");
 
                     b.Property<string>("status")
@@ -154,6 +159,7 @@ namespace medibook_API.Migrations
                         .HasColumnType("INT");
 
                     b.Property<string>("doctor_reply")
+                        .IsRequired()
                         .HasMaxLength(500)
                         .IsUnicode(false)
                         .HasColumnType("varchar(500)")
@@ -162,7 +168,7 @@ namespace medibook_API.Migrations
                     b.Property<DateTime>("feedback_date")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2(0)")
-                        .HasColumnName("feedback_date")
+                        .HasColumnName("create_date")
                         .HasDefaultValueSql("(sysdatetime())");
 
                     b.Property<bool>("is_favourite")
@@ -176,9 +182,9 @@ namespace medibook_API.Migrations
                         .HasColumnType("int")
                         .HasColumnName("rate");
 
-                    b.Property<DateTime?>("reply_date")
+                    b.Property<DateTime>("reply_date")
                         .HasColumnType("datetime2(0)")
-                        .HasColumnName("reply_date");
+                        .HasColumnName("appointment_date");
 
                     b.HasKey("feedback_id")
                         .HasName("FEEDBACKID_PK");
@@ -529,6 +535,7 @@ namespace medibook_API.Migrations
                         .WithMany("Appointments")
                         .HasForeignKey("nurse_id")
                         .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
                         .HasConstraintName("FK_Nurse_Appointment");
 
                     b.HasOne("medibook_API.Models.Users", "Patients")
@@ -542,6 +549,7 @@ namespace medibook_API.Migrations
                         .WithMany("Appointments")
                         .HasForeignKey("room_id")
                         .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
                         .HasConstraintName("FK_Room_Appointment");
 
                     b.Navigation("Doctors");

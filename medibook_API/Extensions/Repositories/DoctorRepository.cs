@@ -7,23 +7,27 @@ using Microsoft.EntityFrameworkCore;
 
 namespace medibook_API.Extensions.Repositories
 {
-    public class DoctorRepositroy : IDoctorRepository
+    public class DoctorRepository : IDoctorRepository
     {
         private readonly Medibook_Context database;
-        private readonly ILogger<DoctorRepositroy> logger;
+        private readonly ILogger<DoctorRepository> logger;
         private readonly StringNormalizer stringNormalizer;
         private readonly IPasswordHasherRepository passwordHasher;
-        public DoctorRepositroy(Medibook_Context database,
-            ILogger<DoctorRepositroy> logger,
+        private readonly ILogRepository logRepository;
+
+        public DoctorRepository(
+            Medibook_Context database,
+            ILogger<DoctorRepository> logger,
             StringNormalizer stringNormalizer,
-            IPasswordHasherRepository passwordHasher)
+            IPasswordHasherRepository passwordHasher,
+            ILogRepository logRepository)
         {
             this.database = database;
             this.logger = logger;
             this.stringNormalizer = stringNormalizer;
             this.passwordHasher = passwordHasher;
+            this.logRepository = logRepository;
         }
-
 
         public async Task<CreatedResponseDto> CreateDoctorAsync(CreateDoctorDto dto)
         {
@@ -34,11 +38,10 @@ namespace medibook_API.Extensions.Repositories
 
                 if (role == null)
                 {
-                    logger.LogError("Doctor role not found in the database.");
-                    return new CreatedResponseDto
-                    {
-                        Message = "Doctor role not found"
-                    };
+                    string msg = "Doctor role not found in database.";
+                    logger.LogError(msg);
+                    await logRepository.CreateLogAsync("Create Doctor", "Error", msg);
+                    return new CreatedResponseDto { Message = msg };
                 }
 
                 var user = new Users
@@ -58,63 +61,58 @@ namespace medibook_API.Extensions.Repositories
                     role_id = role.role_id
                 };
 
-                var userEntry = await database.Users.AddAsync(user);
+                await database.Users.AddAsync(user);
                 await database.SaveChangesAsync();
-
-                int newUserId = userEntry.Entity.user_id;
 
                 var doctor = new Doctors
                 {
-                    user_id = newUserId,
+                    user_id = user.user_id,
                     bio = dto.Bio,
                     specialization = dto.Specialization,
                     Type = dto.Type,
                     experience_years = dto.ExperienceYears
                 };
 
-                var doctorEntry = await database.Doctors.AddAsync(doctor);
+                await database.Doctors.AddAsync(doctor);
                 await database.SaveChangesAsync();
+
+                string successMsg = $"Doctor {user.first_name} {user.last_name} created successfully.";
+                logger.LogInformation(successMsg);
+                await logRepository.CreateLogAsync("Create Doctor", "Success", successMsg);
 
                 return new CreatedResponseDto
                 {
-                    UserId = newUserId,
-                    TypeId = doctorEntry.Entity.doctor_id,
-                    Message = "Doctor created successfully"
+                    UserId = user.user_id,
+                    TypeId = doctor.doctor_id,
+                    Message = successMsg
                 };
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "An error occurred while creating a new doctor.");
-                return new CreatedResponseDto
-                {
-                    Message = "Error while creating doctor"
-                };
+                logger.LogError(ex, "Error creating doctor");
+                await logRepository.CreateLogAsync("Create Doctor", "Error", ex.Message);
+
+                return new CreatedResponseDto { Message = ex.Message };
             }
         }
         public async Task<IEnumerable<DoctorDetailsDto>> GetAllDoctorsAsync()
         {
             try
             {
-                logger.LogInformation("Fetching all doctors with user data...");
-
                 var doctors = await database.Doctors
                     .Include(d => d.Users)
                     .ToListAsync();
 
-                if (!doctors.Any())
-                {
-                    logger.LogWarning("No doctors found in the system.");
-                }
-                else
-                {
-                    logger.LogInformation("Successfully retrieved {Count} doctors.", doctors.Count);
-                }
+                string msg = $"Fetched {doctors.Count} doctors.";
+                logger.LogInformation(msg);
+                await logRepository.CreateLogAsync("Get All Doctors", "Success", msg);
 
                 return doctors.Select(MapToDoctorDetailsDto);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error occurred while retrieving all doctors.");
+                logger.LogError(ex, "Error retrieving all doctors");
+                await logRepository.CreateLogAsync("Get All Doctors", "Error", ex.Message);
                 return Enumerable.Empty<DoctorDetailsDto>();
             }
         }
@@ -122,74 +120,51 @@ namespace medibook_API.Extensions.Repositories
         {
             try
             {
-                logger.LogInformation("Fetching all ACTIVE doctors with user data...");
-
                 var doctors = await database.Doctors
                     .Include(d => d.Users)
                     .Where(d => d.Users.is_active)
                     .ToListAsync();
 
-                if (!doctors.Any())
-                {
-                    logger.LogWarning("No active doctors found.");
-                }
-                else
-                {
-                    logger.LogInformation("Successfully retrieved {Count} active doctors.", doctors.Count);
-                }
+                string msg = $"Fetched {doctors.Count} active doctors.";
+                logger.LogInformation(msg);
+                await logRepository.CreateLogAsync("Get Active Doctors", "Success", msg);
 
                 return doctors.Select(MapToDoctorDetailsDto);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Error occurred while retrieving active doctors.");
+                logger.LogError(ex, "Error retrieving active doctors");
+                await logRepository.CreateLogAsync("Get Active Doctors", "Error", ex.Message);
                 return Enumerable.Empty<DoctorDetailsDto>();
             }
-        }
-        private DoctorDetailsDto MapToDoctorDetailsDto(Doctors d)
-        {
-            return new DoctorDetailsDto
-            {
-                UserId = d.Users.user_id,
-                FirstName = d.Users.first_name,
-                LastName = d.Users.last_name,
-                Email = d.Users.email,
-                MobilePhone = d.Users.mobile_phone,
-                Gender = d.Users.gender,
-                ProfileImage = d.Users.profile_image,
-                DateOfBirth = d.Users.date_of_birth,
-                CreateDate = d.Users.create_date,
-                IsActive = d.Users.is_active,
-                DoctorId = d.doctor_id,
-                Bio = d.bio,
-                Specialization = d.specialization,
-                Type = d.Type,
-                ExperienceYears = d.experience_years
-            };
         }
         public async Task<DoctorDetailsDto> GetDoctorByIdAsync(int id)
         {
             try
             {
-                logger.LogInformation("Fetching doctor with ID {DoctorId} including user data...", id);
-
                 var doctor = await database.Doctors
                     .Include(d => d.Users)
                     .FirstOrDefaultAsync(d => d.doctor_id == id);
 
                 if (doctor == null)
                 {
-                    logger.LogWarning("Doctor with ID {DoctorId} was not found.", id);
+                    string msg = $"Doctor with ID {id} not found.";
+                    logger.LogWarning(msg);
+                    await logRepository.CreateLogAsync("Get Doctor By ID", "Error", msg);
                     return null;
                 }
 
-                logger.LogInformation("Doctor with ID {DoctorId} retrieved successfully.", id);
+                string successMsg = $"Doctor with ID {id} retrieved.";
+                logger.LogInformation(successMsg);
+                await logRepository.CreateLogAsync("Get Doctor By ID", "Success", successMsg);
+
                 return MapToDoctorDetailsDto(doctor);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "An error occurred while retrieving doctor with ID {DoctorId}.", id);
-                throw;
+                logger.LogError(ex, $"Error retrieving doctor with ID {id}");
+                await logRepository.CreateLogAsync("Get Doctor By ID", "Error", ex.Message);
+                return null;
             }
         }
         public async Task<DoctorDetailsDto> UpdateDoctorAsync(int id, UpdateDoctorDto dto)
@@ -202,7 +177,9 @@ namespace medibook_API.Extensions.Repositories
 
                 if (doctor == null)
                 {
-                    logger.LogWarning($"Doctor with ID {id} not found.");
+                    string msg = $"Doctor with ID {id} not found.";
+                    logger.LogWarning(msg);
+                    await logRepository.CreateLogAsync("Update Doctor", "Error", msg);
                     return null;
                 }
 
@@ -232,16 +209,39 @@ namespace medibook_API.Extensions.Repositories
 
                 await database.SaveChangesAsync();
 
-                logger.LogInformation($"Doctor with ID {id} updated.");
+                string successMsg = $"Doctor with ID {id} updated successfully.";
+                logger.LogInformation(successMsg);
+                await logRepository.CreateLogAsync("Update Doctor", "Success", successMsg);
+
                 return MapToDoctorDetailsDto(doctor);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, $"Error updating doctor with ID {id}");
+                await logRepository.CreateLogAsync("Update Doctor", "Error", ex.Message);
                 return null;
             }
         }
-
-
+        private DoctorDetailsDto MapToDoctorDetailsDto(Doctors d)
+        {
+            return new DoctorDetailsDto
+            {
+                UserId = d.Users.user_id,
+                FirstName = d.Users.first_name,
+                LastName = d.Users.last_name,
+                Email = d.Users.email,
+                MobilePhone = d.Users.mobile_phone,
+                Gender = d.Users.gender,
+                ProfileImage = d.Users.profile_image,
+                DateOfBirth = d.Users.date_of_birth,
+                CreateDate = d.Users.create_date,
+                IsActive = d.Users.is_active,
+                DoctorId = d.doctor_id,
+                Bio = d.bio,
+                Specialization = d.specialization,
+                Type = d.Type,
+                ExperienceYears = d.experience_years
+            };
+        }
     }
 }
