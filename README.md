@@ -20,6 +20,7 @@
 | Get all users           | GET    | `/api/Users/all`              | `https://localhost:7281/api/Users/all`           | `http://localhost:5262/api/Users/all`          |
 | Get all active users    | GET    | `/api/Users/active`           | `https://localhost:7281/api/Users/active`        | `http://localhost:5262/api/Users/active`       |
 | Get user by ID          | GET    | `/api/Users/{id}`             | `https://localhost:7281/api/Users/5`             | `http://localhost:5262/api/Users/5`            |
+| Get current user        | GET    | `/api/Users/current`          | `https://localhost:7281/api/Users/current`       | `http://localhost:5262/api/Users/current`      |
 | Create a user           | POST   | `/api/Users/create`           | `https://localhost:7281/api/Users/create`        | `http://localhost:5262/api/Users/create`       |
 | Update a user           | PUT    | `/api/Users/update/{id}`      | `https://localhost:7281/api/Users/update/5`      | `http://localhost:5262/api/Users/update/5`     |
 | Activate a user         | PATCH  | `/api/Users/{id}/activate`    | `https://localhost:7281/api/Users/5/activate`    | `http://localhost:5262/api/Users/5/activate`   |
@@ -55,17 +56,33 @@
 
 ## Authentication Endpoints
 
-| Action            | Method | Route                 | HTTPS                                      | HTTP                                     |
-| ----------------- | ------ | --------------------- | ------------------------------------------ | ---------------------------------------- |
-| Login             | POST   | `/api/Auth/login`     | `https://localhost:7281/api/Auth/login`    | `http://localhost:5262/api/Auth/login`   |
-| Logout            | POST   | `/api/Auth/logout`    | `https://localhost:7281/api/Auth/logout`   | `http://localhost:5262/api/Auth/logout`  |
+| Action                  | Method | Route                             | HTTPS                                                | HTTP                                               |
+| ----------------------- | ------ | --------------------------------- | ---------------------------------------------------- | -------------------------------------------------- |
+| Login                   | POST   | `/api/Auth/login`                 | `https://localhost:7281/api/Auth/login`              | `http://localhost:5262/api/Auth/login`             |
+| Sign In                 | POST   | `/api/Auth/signIn`                | `https://localhost:7281/api/Auth/signIn`             | `http://localhost:5262/api/Auth/signIn`            |
+| Sign Out                | POST   | `/api/Auth/signOut`               | `https://localhost:7281/api/Auth/signOut`            | `http://localhost:5262/api/Auth/signOut`           |
+| Logout                  | POST   | `/api/Auth/logout`                | `https://localhost:7281/api/Auth/logout`             | `http://localhost:5262/api/Auth/logout`            |
+| Send verification       | POST   | `/api/Auth/send-verification`     | `https://localhost:7281/api/Auth/send-verification`  | `http://localhost:5262/api/Auth/send-verification` |
+| Forget password         | POST   | `/api/Auth/forget-password`       | `https://localhost:7281/api/Auth/forget-password`    | `http://localhost:5262/api/Auth/forget-password`   |
+
+## Logs Endpoints
+
+| Action                      | Method | Route                             | HTTPS                                                | HTTP                                               |
+| --------------------------- | ------ | --------------------------------- | ---------------------------------------------------- | -------------------------------------------------- |
+| Get all logs                | GET    | `/api/Logs/all`                   | `https://localhost:7281/api/Logs/all`                | `http://localhost:5262/api/Logs/all`               |
+| Get log by ID               | GET    | `/api/Logs/{id}`                  | `https://localhost:7281/api/Logs/5`                  | `http://localhost:5262/api/Logs/5`                 |
+| Get logs by user ID         | GET    | `/api/Logs/user/{userId}`         | `https://localhost:7281/api/Logs/user/5`             | `http://localhost:5262/api/Logs/user/5`            |
+| Get logs by type            | GET    | `/api/Logs/type/{logType}`        | `https://localhost:7281/api/Logs/type/error`         | `http://localhost:5262/api/Logs/type/error`        |
+| Get logs by date range      | GET    | `/api/Logs/date-range`            | `https://localhost:7281/api/Logs/date-range`         | `http://localhost:5262/api/Logs/date-range`        |
+| Get current user logs       | GET    | `/api/Logs/current-user`          | `https://localhost:7281/api/Logs/current-user`       | `http://localhost:5262/api/Logs/current-user`      |
 
 ## Base URLs
 - **HTTPS**: `https://localhost:7281`
 - **HTTP**: `http://localhost:5262`
 
 ## Notes
-- Replace `{id}` with the actual ID number in the URL
+- Replace `{id}`, `{userId}`, `{logType}` with actual values in the URL
 - All POST, PUT, and PATCH endpoints require appropriate request body data
 - Authentication may be required for certain endpoints
 - Responses include appropriate HTTP status codes and error messages
+- Date range endpoints may require query parameters for start and end dates
