@@ -1,11 +1,11 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 
 namespace medibook_API.Extensions.DTOs
 {
-    public class ForgetPasswordDto
+    public class ResetPasswordDto
     {
-        [JsonPropertyName("userId")]
-        public int UserId { get; set; }
+        [JsonPropertyName("email")]
+        public string Email { get; set; }
         
         [JsonPropertyName("newPassword")]
         public string NewPassword { get; set; }
@@ -14,3 +14,4 @@ namespace medibook_API.Extensions.DTOs
         public string ConfirmPassword { get; set; }
     }
 }
+

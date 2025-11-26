@@ -6,5 +6,6 @@
         public string firstname { get; set; }
         public string lastname { get; set; }
         public string gender { get; set; }
+        public string code { get; set; }
     }
 }

@@ -79,6 +79,27 @@ namespace medibook_API.Extensions.Repositories
                     return new CreatedResponseDto { Message = "Invalid user data" };
                 }
 
+                // Convert base64 string to byte array if provided
+                byte[]? profileImageBytes = null;
+                if (!string.IsNullOrEmpty(dto.ProfileImage))
+                {
+                    try
+                    {
+                        // Remove data URL prefix if present (e.g., "data:image/png;base64,")
+                        string base64String = dto.ProfileImage;
+                        if (base64String.Contains(","))
+                        {
+                            base64String = base64String.Split(',')[1];
+                        }
+                        profileImageBytes = Convert.FromBase64String(base64String);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Failed to convert base64 profile image to byte array");
+                        // Continue without profile image if conversion fails
+                    }
+                }
+
                 var user = new Users
                 {
                     first_name = stringNormalizer.NormalizeName(dto.FirstName),
@@ -92,7 +113,8 @@ namespace medibook_API.Extensions.Repositories
                     is_active = true,
                     email_verified = "Yes",
                     create_date = DateTime.Now,
-                    profile_image = dto.ProfileImage
+                    date_of_birth = dto.DateOfBirth,
+                    profile_image = profileImageBytes
                 };
 
                 await database.Users.AddAsync(user);
