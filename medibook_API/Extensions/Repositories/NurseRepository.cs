@@ -4,6 +4,7 @@ using medibook_API.Extensions.IRepositories;
 using medibook_API.Extensions.Services;
 using medibook_API.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Numerics;
 
 namespace medibook_API.Extensions.Repositories
 {
@@ -52,7 +53,7 @@ namespace medibook_API.Extensions.Repositories
                     email = dto.Email.ToLower(),
                     mobile_phone = dto.MobilePhone,
                     gender = dto.Gender,
-                    mitrial_status = dto.mitrial_status,
+                    mitrial_status = dto.MitrialStatus,
                     profile_image = dto.ProfileImage,
                     date_of_birth = dto.DateOfBirth,
                     password_hash = passwordHasher.HashPassword(dto.Password),
@@ -191,10 +192,25 @@ namespace medibook_API.Extensions.Repositories
 
                 if (!string.IsNullOrEmpty(dto.MobilePhone))
                     nurse.Users.mobile_phone = dto.MobilePhone;
+                if (!string.IsNullOrEmpty(dto.MitrialStatus))
+                    nurse.Users.mitrial_status = dto.MitrialStatus;
 
-                if (dto.profile_image != null)
-                    nurse.Users.profile_image = dto.profile_image;
-
+                if (dto.ProfileImage != null)
+                    try
+                    {
+                        // Remove data URL prefix if present (e.g., "data:image/png;base64,")
+                        string base64String = dto.ProfileImage;
+                        if (base64String.Contains(","))
+                        {
+                            base64String = base64String.Split(',')[1];
+                        }
+                        nurse.Users.profile_image = Convert.FromBase64String(base64String);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Failed to convert base64 profile image to byte array");
+                        // Continue without updating profile image if conversion fails
+                    }
                 if (!string.IsNullOrEmpty(dto.Bio))
                     nurse.bio = dto.Bio;
 
@@ -215,6 +231,20 @@ namespace medibook_API.Extensions.Repositories
         }
         private NurseDetailsDto MapToNurseDetailsDto(Nurses n)
         {
+            string? profileImageBase64 = null;
+            if (n.Users.profile_image != null && n.Users.profile_image.Length > 0)
+            {
+                try
+                {
+                    profileImageBase64 = Convert.ToBase64String(n.Users.profile_image);
+                    // Add data URL prefix for easy use in frontend
+                    profileImageBase64 = $"data:image/jpeg;base64,{profileImageBase64}";
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to convert profile image to base64");
+                }
+            }
             return new NurseDetailsDto
             {
                 UserId = n.Users.user_id,
@@ -223,7 +253,8 @@ namespace medibook_API.Extensions.Repositories
                 Email = n.Users.email,
                 MobilePhone = n.Users.mobile_phone,
                 Gender = n.Users.gender,
-                ProfileImage = n.Users.profile_image,
+                ProfileImage = profileImageBase64,
+                NurseId = n.nurse_id,
                 DateOfBirth = n.Users.date_of_birth,
                 CreateDate = n.Users.create_date,
                 IsActive = n.Users.is_active,

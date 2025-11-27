@@ -9,6 +9,7 @@ namespace medibook_API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class UsersController : Controller
     {
         private readonly ILogger<UsersController> logger;
@@ -39,6 +40,23 @@ namespace medibook_API.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+        // GET: /api/Users/all
+        [HttpGet("allAdmins")]
+        [ProducesResponseType(typeof(IEnumerable<UserDetailsDto>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> GetAllAdmins()
+        {
+            try
+            {
+                var users = await userRepository.GetAllAdminsAsync();
+                return Ok(users);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error occurred while retrieving all admins.");
+                return StatusCode(500, "Internal server error");
+            }
+        }
 
         // GET: /api/Users/active
         [HttpGet("active")]
@@ -54,6 +72,23 @@ namespace medibook_API.Controllers
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error occurred while retrieving active users.");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+        // GET: /api/Users/active
+        [HttpGet("activeAdmins")]
+        [ProducesResponseType(typeof(IEnumerable<UserDetailsDto>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> GetAllActiveAdminsUsers()
+        {
+            try
+            {
+                var users = await userRepository.GetAllActiveAdminsAsync();
+                return Ok(users);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error occurred while retrieving active admins.");
                 return StatusCode(500, "Internal server error");
             }
         }
@@ -83,6 +118,36 @@ namespace medibook_API.Controllers
             }
         }
 
+        // POST: /api/Users/create
+        [HttpPost("createAdmin")]
+        [ProducesResponseType(typeof(CreatedResponseDto), (int)HttpStatusCode.Created)]
+        [ProducesResponseType((int)HttpStatusCode.BadRequest)]
+        [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> CreateAdmin([FromBody] CreateUserDto dto)
+        {
+            try
+            {
+
+                var existingEmailUser = await userRepository.IsEmailExistAsync(dto.Email, -1);
+                var existingPhoneUser = await userRepository.IsPhoneExistAsync(dto.MobilePhone, -1);
+                if (existingEmailUser)
+                    return BadRequest("Email already exists.");
+                if (existingPhoneUser)
+                    return BadRequest("Mobile Phone is already exists.");
+
+                var createdUser = await userRepository.CreateAdminAsync(dto);
+
+                if (createdUser.UserId <= 0)
+                    return BadRequest(createdUser.Message);
+
+                return CreatedAtAction(nameof(GetUserById), new { id = createdUser.UserId }, createdUser);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error occurred while creating admin.");
+                return StatusCode(500, "Internal server error");
+            }
+        }
         // POST: /api/Users/create
         [HttpPost("create")]
         [ProducesResponseType(typeof(CreatedResponseDto), (int)HttpStatusCode.Created)]
@@ -180,7 +245,7 @@ namespace medibook_API.Controllers
             try
             {
                 var currentUserId = userContextService.GetCurrentUserId();
-                
+
                 if (currentUserId <= 0)
                 {
                     return Unauthorized("Unable to retrieve current user information from token.");

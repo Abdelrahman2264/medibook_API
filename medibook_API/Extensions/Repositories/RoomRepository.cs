@@ -1,4 +1,5 @@
 ﻿using medibook_API.Data;
+using medibook_API.Extensions.DTOs;
 using medibook_API.Extensions.IRepositories;
 using medibook_API.Extensions.Services;
 using medibook_API.Models;
@@ -55,20 +56,20 @@ namespace medibook_API.Extensions.Repositories
                 return false;
             }
         }
-        public async Task<Rooms> CreateRoomAsync(Rooms room)
+        public async Task<RoomDetailsDto> CreateRoomAsync(CreateRoomDto dto)
         {
             try
             {
-                if (room == null)
+                if (dto == null)
                 {
                     string msg = "CreateRoomAsync: Room object is null.";
                     logger.LogWarning(msg);
                     await logRepository.CreateLogAsync("Create Room", "Warning", msg);
-                    return new Rooms();
+                    return new RoomDetailsDto();
                 }
-
-                room.room_name = stringNormalizer.NormalizeName(room.room_name);
-                room.room_type = stringNormalizer.NormalizeName(room.room_type);
+                var room = new Rooms();
+                room.room_name = stringNormalizer.NormalizeName(dto.RoomName);
+                room.room_type = stringNormalizer.NormalizeName(dto.RoomType);
                 room.is_active = true;
                 room.create_date = DateTime.Now;
 
@@ -79,13 +80,13 @@ namespace medibook_API.Extensions.Repositories
                 logger.LogInformation(successMsg);
                 await logRepository.CreateLogAsync("Create Room", "Success", successMsg);
 
-                return room;
+                return MapingRooms(room);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error creating room.");
                 await logRepository.CreateLogAsync("Create Room", "Error", ex.Message);
-                return new Rooms();
+                return new RoomDetailsDto();
             }
         }
 
@@ -119,7 +120,7 @@ namespace medibook_API.Extensions.Repositories
                 return false;
             }
         }
-        public async Task<IEnumerable<Rooms>> GetALlActiveAsync()
+        public async Task<IEnumerable<RoomDetailsDto>> GetALlActiveAsync()
         {
             try
             {
@@ -128,18 +129,19 @@ namespace medibook_API.Extensions.Repositories
                     .OrderBy(r => r.room_name)
                     .ToListAsync();
 
+
                 await logRepository.CreateLogAsync("Get Active Rooms", "Success", "Active rooms retrieved successfully.");
 
-                return list;
+                return list.Select(MapingRooms);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error retrieving active rooms.");
                 await logRepository.CreateLogAsync("Get Active Rooms", "Error", ex.Message);
-                return Enumerable.Empty<Rooms>();
+                return Enumerable.Empty<RoomDetailsDto>();
             }
         }
-        public async Task<IEnumerable<Rooms>> GetALlRoomsAsync()
+        public async Task<IEnumerable<RoomDetailsDto>> GetALlRoomsAsync()
         {
             try
             {
@@ -149,16 +151,16 @@ namespace medibook_API.Extensions.Repositories
 
                 await logRepository.CreateLogAsync("Get Rooms", "Success", "Rooms retrieved successfully.");
 
-                return list;
+                return list.Select(MapingRooms);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error retrieving rooms.");
                 await logRepository.CreateLogAsync("Get Rooms", "Error", ex.Message);
-                return Enumerable.Empty<Rooms>();
+                return Enumerable.Empty<RoomDetailsDto>();
             }
         }
-        public async Task<Rooms> GetRoomByIdAsync(int id)
+        public async Task<RoomDetailsDto> GetRoomByIdAsync(int id)
         {
             try
             {
@@ -169,17 +171,17 @@ namespace medibook_API.Extensions.Repositories
                     string msg = $"Room with ID {id} not found.";
                     logger.LogWarning(msg);
                     await logRepository.CreateLogAsync("Get Room By ID", "Warning", msg);
-                    return new Rooms();
+                    return new RoomDetailsDto();
                 }
 
                 await logRepository.CreateLogAsync("Get Room By ID", "Success", $"Room with ID {id} retrieved.");
-                return room;
+                return MapingRooms(room);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error retrieving room by ID.");
                 await logRepository.CreateLogAsync("Get Room By ID", "Error", ex.Message);
-                return new Rooms();
+                return new RoomDetailsDto();
             }
         }
         public async Task<bool> InactiveRoomAsync(int roomId)
@@ -241,40 +243,52 @@ namespace medibook_API.Extensions.Repositories
                 return false;
             }
         }
-        public async Task<Rooms> UpdateRoomAsync(Rooms room)
+        public async Task<RoomDetailsDto> UpdateRoomAsync(RoomDetailsDto room)
         {
             try
             {
-                var existingRoom = await database.Rooms.FirstOrDefaultAsync(r => r.room_id == room.room_id);
+                var existingRoom = await database.Rooms.FirstOrDefaultAsync(r => r.room_id == room.RoomId);
 
                 if (existingRoom == null)
                 {
-                    string msg = $"Room with ID {room.room_id} not found.";
+                    string msg = $"Room with ID {room.RoomId} not found.";
                     logger.LogWarning(msg);
                     await logRepository.CreateLogAsync("Update Room", "Warning", msg);
-                    return new Rooms();
+                    return new RoomDetailsDto();
                 }
 
-                existingRoom.room_name = stringNormalizer.NormalizeName(room.room_name);
-                existingRoom.room_type = stringNormalizer.NormalizeName(room.room_type);
-                existingRoom.is_active = room.is_active;
-                existingRoom.create_date = room.create_date;
+                existingRoom.room_name = stringNormalizer.NormalizeName(room.RoomName);
+                existingRoom.room_type = stringNormalizer.NormalizeName(room.RoomType);
+                existingRoom.is_active = room.IsActive;
+                existingRoom.create_date = room.CreateDate;
 
                 database.Rooms.Update(existingRoom);
                 await database.SaveChangesAsync();
 
-                string successMsg = $"Room with ID {room.room_id} updated successfully.";
+                string successMsg = $"Room with ID {room.RoomId} updated successfully.";
                 logger.LogInformation(successMsg);
                 await logRepository.CreateLogAsync("Update Room", "Success", successMsg);
 
-                return existingRoom;
+                return MapingRooms(existingRoom);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error updating room.");
                 await logRepository.CreateLogAsync("Update Room", "Error", ex.Message);
-                return new Rooms();
+                return new RoomDetailsDto();
             }
+        }
+        private RoomDetailsDto MapingRooms(Rooms r)
+        {
+            return new RoomDetailsDto
+            {
+                RoomId = r.room_id,
+                RoomName = r.room_name,
+                RoomType = r.room_type,
+                IsActive = r.is_active,
+                CreateDate = r.create_date,
+
+            };
         }
     }
 }

@@ -33,6 +33,79 @@ namespace medibook_API.Extensions.Repositories
         {
             try
             {
+                if (dto == null)
+                {
+                    string msg = "Invalid doctor data: DTO is null";
+                    logger.LogWarning(msg);
+                    await logRepository.CreateLogAsync("Create Doctor", "Error", msg);
+                    return new CreatedResponseDto { Message = msg };
+                }
+
+                // Validate required fields
+                if (string.IsNullOrWhiteSpace(dto.FirstName))
+                {
+                    string msg = "First name is required";
+                    logger.LogWarning(msg);
+                    await logRepository.CreateLogAsync("Create Doctor", "Error", msg);
+                    return new CreatedResponseDto { Message = msg };
+                }
+
+                if (string.IsNullOrWhiteSpace(dto.LastName))
+                {
+                    string msg = "Last name is required";
+                    logger.LogWarning(msg);
+                    await logRepository.CreateLogAsync("Create Doctor", "Error", msg);
+                    return new CreatedResponseDto { Message = msg };
+                }
+
+                if (string.IsNullOrWhiteSpace(dto.Email))
+                {
+                    string msg = "Email is required";
+                    logger.LogWarning(msg);
+                    await logRepository.CreateLogAsync("Create Doctor", "Error", msg);
+                    return new CreatedResponseDto { Message = msg };
+                }
+
+                if (string.IsNullOrWhiteSpace(dto.MobilePhone))
+                {
+                    string msg = "Mobile phone is required";
+                    logger.LogWarning(msg);
+                    await logRepository.CreateLogAsync("Create Doctor", "Error", msg);
+                    return new CreatedResponseDto { Message = msg };
+                }
+
+                if (string.IsNullOrWhiteSpace(dto.Password))
+                {
+                    string msg = "Password is required";
+                    logger.LogWarning(msg);
+                    await logRepository.CreateLogAsync("Create Doctor", "Error", msg);
+                    return new CreatedResponseDto { Message = msg };
+                }
+
+                if (string.IsNullOrWhiteSpace(dto.Gender))
+                {
+                    string msg = "Gender is required";
+                    logger.LogWarning(msg);
+                    await logRepository.CreateLogAsync("Create Doctor", "Error", msg);
+                    return new CreatedResponseDto { Message = msg };
+                }
+
+                if (string.IsNullOrWhiteSpace(dto.MitrialStatus))
+                {
+                    string msg = "Marital status is required";
+                    logger.LogWarning(msg);
+                    await logRepository.CreateLogAsync("Create Doctor", "Error", msg);
+                    return new CreatedResponseDto { Message = msg };
+                }
+
+                if (string.IsNullOrWhiteSpace(dto.Specialization))
+                {
+                    string msg = "Specialization is required";
+                    logger.LogWarning(msg);
+                    await logRepository.CreateLogAsync("Create Doctor", "Error", msg);
+                    return new CreatedResponseDto { Message = msg };
+                }
+
                 var role = await database.Roles
                     .FirstOrDefaultAsync(r => r.role_name.ToLower() == "doctor");
 
@@ -44,6 +117,27 @@ namespace medibook_API.Extensions.Repositories
                     return new CreatedResponseDto { Message = msg };
                 }
 
+                // Convert base64 string to byte array if provided
+                byte[]? profileImageBytes = null;
+                if (!string.IsNullOrEmpty(dto.ProfileImage))
+                {
+                    try
+                    {
+                        // Remove data URL prefix if present (e.g., "data:image/png;base64,")
+                        string base64String = dto.ProfileImage;
+                        if (base64String.Contains(","))
+                        {
+                            base64String = base64String.Split(',')[1];
+                        }
+                        profileImageBytes = Convert.FromBase64String(base64String);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Failed to convert base64 profile image to byte array");
+                        // Continue without profile image if conversion fails
+                    }
+                }
+
                 var user = new Users
                 {
                     first_name = stringNormalizer.NormalizeName(dto.FirstName),
@@ -51,8 +145,8 @@ namespace medibook_API.Extensions.Repositories
                     email = dto.Email.ToLower(),
                     mobile_phone = dto.MobilePhone,
                     gender = dto.Gender,
-                    mitrial_status = dto.mitrial_status,
-                    profile_image = dto.ProfileImage,
+                    mitrial_status = dto.MitrialStatus,
+                    profile_image = profileImageBytes,
                     date_of_birth = dto.DateOfBirth,
                     password_hash = passwordHasher.HashPassword(dto.Password),
                     create_date = DateTime.Now,
@@ -142,6 +236,7 @@ namespace medibook_API.Extensions.Repositories
         {
             try
             {
+                await Task.Delay(200);
                 var doctor = await database.Doctors
                     .Include(d => d.Users)
                     .FirstOrDefaultAsync(d => d.doctor_id == id);
@@ -203,9 +298,27 @@ namespace medibook_API.Extensions.Repositories
 
                 if (!string.IsNullOrEmpty(dto.MobilePhone))
                     doctor.Users.mobile_phone = dto.MobilePhone;
+                if (!string.IsNullOrEmpty(dto.MitrialStatus))
+                    doctor.Users.mitrial_status = dto.MitrialStatus;
 
-                if (dto.profile_image != null)
-                    doctor.Users.profile_image = dto.profile_image;
+                if (!string.IsNullOrEmpty(dto.ProfileImage))
+                {
+                    try
+                    {
+                        // Remove data URL prefix if present (e.g., "data:image/png;base64,")
+                        string base64String = dto.ProfileImage;
+                        if (base64String.Contains(","))
+                        {
+                            base64String = base64String.Split(',')[1];
+                        }
+                        doctor.Users.profile_image = Convert.FromBase64String(base64String);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Failed to convert base64 profile image to byte array");
+                        // Continue without updating profile image if conversion fails
+                    }
+                }
 
                 await database.SaveChangesAsync();
 
@@ -224,6 +337,22 @@ namespace medibook_API.Extensions.Repositories
         }
         private DoctorDetailsDto MapToDoctorDetailsDto(Doctors d)
         {
+            // Convert byte array to base64 string for frontend
+            string? profileImageBase64 = null;
+            if (d.Users.profile_image != null && d.Users.profile_image.Length > 0)
+            {
+                try
+                {
+                    profileImageBase64 = Convert.ToBase64String(d.Users.profile_image);
+                    // Add data URL prefix for easy use in frontend
+                    profileImageBase64 = $"data:image/jpeg;base64,{profileImageBase64}";
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to convert profile image to base64");
+                }
+            }
+
             return new DoctorDetailsDto
             {
                 UserId = d.Users.user_id,
@@ -232,7 +361,7 @@ namespace medibook_API.Extensions.Repositories
                 Email = d.Users.email,
                 MobilePhone = d.Users.mobile_phone,
                 Gender = d.Users.gender,
-                ProfileImage = d.Users.profile_image,
+                ProfileImage = profileImageBase64,
                 DateOfBirth = d.Users.date_of_birth,
                 CreateDate = d.Users.create_date,
                 IsActive = d.Users.is_active,

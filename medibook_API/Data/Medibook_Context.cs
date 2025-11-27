@@ -36,7 +36,7 @@ namespace medibook_API.Data
             {
                 entity.HasKey(e => e.user_id).HasName("USERUID_PK");
                 entity.Property(e => e.user_id)
-.ValueGeneratedOnAdd();
+                    .ValueGeneratedOnAdd();
 
                 entity.HasIndex(e => e.email, "USEREMAIL_UQ")
                   .IsUnique();
@@ -183,7 +183,7 @@ namespace medibook_API.Data
            {
                entity.HasKey(e => e.notification_id).HasName("NOTIFICATIONID_PK");
                entity.Property(e => e.notification_id)
-.ValueGeneratedOnAdd();
+               .ValueGeneratedOnAdd();
 
                entity.Property(e => e.message)
                .HasMaxLength(500)
@@ -220,7 +220,7 @@ namespace medibook_API.Data
            {
                entity.HasKey(e => e.room_id).HasName("ROOMID_PK");
                entity.Property(e => e.room_id)
-.ValueGeneratedOnAdd();
+                .ValueGeneratedOnAdd();
                entity.HasIndex(e => e.room_name, "ROOMNAME_UQ")
                .IsUnique();
                entity.Property(e => e.room_name)

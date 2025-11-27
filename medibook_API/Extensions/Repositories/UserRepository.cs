@@ -139,6 +139,88 @@ namespace medibook_API.Extensions.Repositories
                 throw;
             }
         }
+        public async Task<CreatedResponseDto> CreateAdminAsync(CreateUserDto dto)
+        {
+            try
+            {
+                var role = await database.Roles.FirstOrDefaultAsync(u => u.role_name == "admin");
+
+                if (role == null)
+                {
+                    logger.LogWarning("admin role not found");
+                    await logRepository.CreateLogAsync("Create Admin", "Error", "Admin role not found");
+
+                    return new CreatedResponseDto { Message = "Admin role not found" };
+                }
+
+                if (dto == null)
+                {
+                    logger.LogWarning("Invalid admin data");
+                    await logRepository.CreateLogAsync("Create Admin", "Error", "Invalid admin data");
+
+                    return new CreatedResponseDto { Message = "Invalid admin data" };
+                }
+
+                // Convert base64 string to byte array if provided
+                byte[]? profileImageBytes = null;
+                if (!string.IsNullOrEmpty(dto.ProfileImage))
+                {
+                    try
+                    {
+                        // Remove data URL prefix if present (e.g., "data:image/png;base64,")
+                        string base64String = dto.ProfileImage;
+                        if (base64String.Contains(","))
+                        {
+                            base64String = base64String.Split(',')[1];
+                        }
+                        profileImageBytes = Convert.FromBase64String(base64String);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Failed to convert base64 profile image to byte array");
+                        // Continue without profile image if conversion fails
+                    }
+                }
+
+                var user = new Users
+                {
+                    first_name = stringNormalizer.NormalizeName(dto.FirstName),
+                    last_name = stringNormalizer.NormalizeName(dto.LastName),
+                    email = dto.Email.ToLower(),
+                    gender = dto.Gender,
+                    mitrial_status = dto.MitrialStatus,
+                    mobile_phone = dto.MobilePhone,
+                    role_id = role.role_id,
+                    password_hash = passwordHasher.HashPassword(dto.Password),
+                    is_active = true,
+                    email_verified = "Yes",
+                    create_date = DateTime.Now,
+                    date_of_birth = dto.DateOfBirth,
+                    profile_image = profileImageBytes
+                };
+
+                await database.Users.AddAsync(user);
+                await database.SaveChangesAsync();
+
+                await logRepository.CreateLogAsync(
+                    "Create admin",
+                    "Success",
+                    $"Admin {user.first_name} {user.last_name} created"
+                );
+
+                return new CreatedResponseDto
+                {
+                    UserId = user.user_id,
+                    Message = "Admin Created Successfully"
+                };
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "CreateAdminAsync error");
+                await logRepository.CreateLogAsync("Create Admin", "Error", ex.Message);
+                throw;
+            }
+        }
         public async Task<IEnumerable<UserDetailsDto>> GetAllActiveUsersAsync()
         {
             try
@@ -174,6 +256,47 @@ namespace medibook_API.Extensions.Repositories
             catch (Exception ex)
             {
                 logger.LogError(ex, "GetAllUsersAsync error");
+                await logRepository.CreateLogAsync("Get All Users", "Error", ex.Message);
+                return Enumerable.Empty<UserDetailsDto>();
+            }
+        }
+        public async Task<IEnumerable<UserDetailsDto>> GetAllAdminsAsync()
+        {
+            try
+            {
+                var users = await database.Users
+                    .Include(r => r.Role)
+                    .Where(u => u.Role.role_name == "admin")
+                    .ToListAsync();
+
+                await logRepository.CreateLogAsync("Get All Admins", "Success", "Retrieved all admins");
+
+                return users.Select(MapToUserDetailsDto);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "GetAllAdminsAsync error");
+                await logRepository.CreateLogAsync("Get All Users", "Error", ex.Message);
+                return Enumerable.Empty<UserDetailsDto>();
+            }
+        }
+        public async Task<IEnumerable<UserDetailsDto>> GetAllActiveAdminsAsync()
+        {
+            try
+            {
+                var users = await database.Users
+                    .Include(r => r.Role)
+                    .Where(u => u.is_active)
+                    .Where(u => u.Role.role_name == "admin")
+                    .ToListAsync();
+
+                await logRepository.CreateLogAsync("Get All Admins", "Success", "Retrieved all admins");
+
+                return users.Select(MapToUserDetailsDto);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "GetAllAdminsAsync error");
                 await logRepository.CreateLogAsync("Get All Users", "Error", ex.Message);
                 return Enumerable.Empty<UserDetailsDto>();
             }
@@ -276,7 +399,22 @@ namespace medibook_API.Extensions.Repositories
                 if (!string.IsNullOrEmpty(dto.FirstName)) user.first_name = dto.FirstName;
                 if (!string.IsNullOrEmpty(dto.LastName)) user.last_name = dto.LastName;
                 if (!string.IsNullOrEmpty(dto.MobilePhone)) user.mobile_phone = dto.MobilePhone;
-                if (dto.ProfileImage != null) user.profile_image = dto.ProfileImage;
+                if (dto.ProfileImage != null)
+                    try
+                    {
+                        // Remove data URL prefix if present (e.g., "data:image/png;base64,")
+                        string base64String = dto.ProfileImage;
+                        if (base64String.Contains(","))
+                        {
+                            base64String = base64String.Split(',')[1];
+                        }
+                        user.profile_image = Convert.FromBase64String(base64String);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Failed to convert base64 profile image to byte array");
+                        // Continue without updating profile image if conversion fails
+                    }
 
                 await database.SaveChangesAsync();
 
@@ -295,6 +433,20 @@ namespace medibook_API.Extensions.Repositories
 
         private UserDetailsDto MapToUserDetailsDto(Users d)
         {
+            string? profileImageBase64 = null;
+            if (d.profile_image != null && d.profile_image.Length > 0)
+            {
+                try
+                {
+                    profileImageBase64 = Convert.ToBase64String(d.profile_image);
+                    // Add data URL prefix for easy use in frontend
+                    profileImageBase64 = $"data:image/jpeg;base64,{profileImageBase64}";
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to convert profile image to base64");
+                }
+            }
             return new UserDetailsDto
             {
                 Id = d.user_id,
@@ -303,7 +455,8 @@ namespace medibook_API.Extensions.Repositories
                 Email = d.email,
                 MobilePhone = d.mobile_phone,
                 Gender = d.gender,
-                ProfileImage = d.profile_image,
+                MitrialStatus = d.mitrial_status,
+                ProfileImage = profileImageBase64,
                 DateOfBirth = d.date_of_birth,
                 CreateDate = d.create_date,
                 IsActive = d.is_active

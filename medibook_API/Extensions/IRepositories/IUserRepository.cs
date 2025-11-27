@@ -14,6 +14,10 @@ namespace medibook_API.Extensions.IRepositories
         public Task<IEnumerable<UserDetailsDto>> GetAllActiveUsersAsync();
 
         public Task<CreatedResponseDto> CreateUserAsync(CreateUserDto dto);
+        public Task<CreatedResponseDto> CreateAdminAsync(CreateUserDto dto);
+        public Task<IEnumerable<UserDetailsDto>> GetAllAdminsAsync();
+        public Task<IEnumerable<UserDetailsDto>> GetAllActiveAdminsAsync();
+
         public Task<UserDetailsDto> UpdateUserAsync(UpdateUserDto dto , int id);
 
 

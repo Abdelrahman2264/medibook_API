@@ -1,4 +1,5 @@
-﻿using medibook_API.Extensions.IRepositories;
+﻿using medibook_API.Extensions.DTOs;
+using medibook_API.Extensions.IRepositories;
 using medibook_API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -23,7 +24,7 @@ namespace medibook_API.Controllers
 
         // GET: /api/Rooms
         [HttpGet("all")] // route: /api/Rooms/all
-        [ProducesResponseType(typeof(IEnumerable<Rooms>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(IEnumerable<RoomDetailsDto>), (int)HttpStatusCode.OK)]
         [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
         public async Task<IActionResult> GetAllRooms()
         {
@@ -41,7 +42,7 @@ namespace medibook_API.Controllers
 
         // GET: /api/Rooms/active
         [HttpGet("active")] // route: /api/Rooms/active
-        [ProducesResponseType(typeof(IEnumerable<Rooms>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(IEnumerable<RoomDetailsDto>), (int)HttpStatusCode.OK)]
         [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
         public async Task<IActionResult> GetAllActiveRooms()
         {
@@ -58,14 +59,14 @@ namespace medibook_API.Controllers
         }
         // GET: /api/Rooms/{id}
         [HttpGet("{id:int}")] // route: /api/Rooms/{id}
-        [ProducesResponseType(typeof(Rooms), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(RoomDetailsDto), (int)HttpStatusCode.OK)]
         [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
         public async Task<IActionResult> GetRoomById(int id)
         {
             try
             {
                 var room = await roomRepository.GetRoomByIdAsync(id);
-                if (room.room_id <= 0)
+                if (room.RoomId <= 0)
                 {
                     return NotFound($"ROOM WITH {id} NOT FOUND");
                 }
@@ -79,24 +80,24 @@ namespace medibook_API.Controllers
         }
         // POST: /api/Rooms/Create
         [HttpPost("create")]  // route: /api/Rooms/Create
-        [ProducesResponseType(typeof(Rooms), (int)HttpStatusCode.Created)]
+        [ProducesResponseType(typeof(RoomDetailsDto), (int)HttpStatusCode.Created)]
         [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
-        public async Task<IActionResult> CreateRoom([FromBody] Rooms room)
+        public async Task<IActionResult> CreateRoom([FromBody] CreateRoomDto room)
         {
             try
             {
-                var room_Exist = await roomRepository.IsRoomExist(room.room_name, room.room_type, room.room_id);
+                var room_Exist = await roomRepository.IsRoomExist(room.RoomName, room.RoomType, 0);
                 if (room_Exist == true)
                 {
-                    return BadRequest($"Room With Name  {room.room_name} and Type {room.room_type} is already exist");
+                    return BadRequest($"Room With Name  {room.RoomName} and Type {room.RoomType} is already exist");
                 }
                 var createdRoom = await roomRepository.CreateRoomAsync(room);
-                if (createdRoom.room_id <= 0)
+                if (createdRoom.RoomId <= 0)
                 {
                     return BadRequest("Failed to create room.");
                 }
 
-                return CreatedAtAction(nameof(GetRoomById), new { id = createdRoom.room_id }, createdRoom);
+                return CreatedAtAction(nameof(GetRoomById), new { id = createdRoom.RoomId }, createdRoom);
             }
             catch (Exception ex)
             {
@@ -149,14 +150,14 @@ namespace medibook_API.Controllers
 
         // PUT: /api/Rooms/Update/{id}
         [HttpPut("update/{id}")] // route: /api/Rooms/Update/{id}
-        [ProducesResponseType(typeof(Rooms), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(RoomDetailsDto), (int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(string), (int)HttpStatusCode.BadRequest)]
         [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
-        public async Task<IActionResult> UpdateRoom(int id, [FromBody] Rooms room)
+        public async Task<IActionResult> UpdateRoom(int id, [FromBody] RoomDetailsDto room)
         {
             try
             {
-                if (id != room.room_id)
+                if (id != room.RoomId)
                 {
                     return BadRequest("Room ID mismatch you can't change room ID.");
                 }
@@ -167,10 +168,10 @@ namespace medibook_API.Controllers
                     return NotFound($"Room with ID {id} does not exist.");
                 }
 
-                var roomExist = await roomRepository.IsRoomExist(room.room_name, room.room_type, room.room_id);
+                var roomExist = await roomRepository.IsRoomExist(room.RoomName, room.RoomType, room.RoomId);
                 if (roomExist)
                 {
-                    return BadRequest($"Another room with Name '{room.room_name}' and Type '{room.room_type}' already exists.");
+                    return BadRequest($"Another room with Name '{room.RoomName}' and Type '{room.RoomType}' already exists.");
                 }
 
                 var updatedRoom = await roomRepository.UpdateRoomAsync(room);
@@ -198,7 +199,7 @@ namespace medibook_API.Controllers
             try
             {
                 var existingRoom = await roomRepository.GetRoomByIdAsync(id);
-                if (existingRoom.room_id <= 0)
+                if (existingRoom.RoomId <= 0)
                 {
                     return NotFound($"Room with ID {id} does not exist.");
                 }
