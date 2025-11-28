@@ -15,7 +15,7 @@ namespace medibook_API.Extensions.IRepositories
         public Task<IEnumerable<AppointmentDetailsDto>> GetAllAppointmentByPatientIdAsync(int id);
         public Task<IEnumerable<AppointmentDetailsDto>> GetAllAppointmentByDoctorIdAsync(int id);
         public Task<IEnumerable<AppointmentDetailsDto>> GetAllAppointmentByNurseIdAsync(int id);
-        public Task<IEnumerable<DateTime>> GetAllActiveAppointmentDatesAsync();
+        public Task<IEnumerable<DateTime>> GetAllActiveAppointmentDatesAsync(int doctorid);
 
 
     }

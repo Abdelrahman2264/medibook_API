@@ -16,8 +16,8 @@ namespace medibook_API.Extensions.Repositories
         private readonly IUserContextService userContextService;
 
         public AppointmentRepository(
-            Medibook_Context database, 
-            ILogger<AppointmentRepository> logger, 
+            Medibook_Context database,
+            ILogger<AppointmentRepository> logger,
             ILogRepository logRepository,
             INotificationService notificationService,
             IUserContextService userContextService)
@@ -38,7 +38,7 @@ namespace medibook_API.Extensions.Repositories
                 if (appointment == null)
                 {
                     logger.LogWarning($"Appointment with ID {dto.appointment_id} not found.");
-                    await logRepository.CreateLogAsync("ASSIGN_APPOINTMENT", "WARNING", 
+                    await logRepository.CreateLogAsync("ASSIGN_APPOINTMENT", "WARNING",
                         $"Appointment with ID {dto.appointment_id} not found for assignment.");
                     return false;
                 }
@@ -47,8 +47,8 @@ namespace medibook_API.Extensions.Repositories
                 appointment.status = "Assigned";
                 database.Appointments.Update(appointment);
                 await database.SaveChangesAsync();
-                
-                await logRepository.CreateLogAsync("ASSIGN_APPOINTMENT", "SUCCESS", 
+
+                await logRepository.CreateLogAsync("ASSIGN_APPOINTMENT", "SUCCESS",
                     $"Appointment {dto.appointment_id} assigned to Nurse ID: {dto.nurse_id}, Room ID: {dto.room_id}");
 
                 // Send notifications
@@ -86,14 +86,14 @@ namespace medibook_API.Extensions.Repositories
                 // Notify all admins
                 var adminMessage = $"Appointment {dto.appointment_id} has been assigned. Nurse ID: {dto.nurse_id}, Room ID: {dto.room_id}";
                 await notificationService.SendNotificationToAdminsAsync(senderId, adminMessage);
-                
+
                 return true;
 
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, $"Error in {nameof(AssignAppointmentAsync)}: {ex.Message}");
-                await logRepository.CreateLogAsync("ASSIGN_APPOINTMENT", "ERROR", 
+                await logRepository.CreateLogAsync("ASSIGN_APPOINTMENT", "ERROR",
                     $"Error assigning appointment {dto.appointment_id}: {ex.Message}");
                 throw;
 
@@ -109,7 +109,7 @@ namespace medibook_API.Extensions.Repositories
                 if (appointment == null)
                 {
                     logger.LogWarning($"Appointment with ID {dto.appointment_id} not found.");
-                    await logRepository.CreateLogAsync("CANCEL_APPOINTMENT", "WARNING", 
+                    await logRepository.CreateLogAsync("CANCEL_APPOINTMENT", "WARNING",
                         $"Appointment with ID {dto.appointment_id} not found for cancellation.");
                     return new AppointmentResponseDto
                     {
@@ -119,8 +119,8 @@ namespace medibook_API.Extensions.Repositories
                 appointment.status = "Cancelled";
                 database.Appointments.Update(appointment);
                 await database.SaveChangesAsync();
-                
-                await logRepository.CreateLogAsync("CANCEL_APPOINTMENT", "SUCCESS", 
+
+                await logRepository.CreateLogAsync("CANCEL_APPOINTMENT", "SUCCESS",
                     $"Appointment {dto.appointment_id} cancelled successfully. Patient ID: {appointment.patient_id}, Doctor ID: {appointment.doctor_id}");
 
                 // Send notifications
@@ -149,7 +149,7 @@ namespace medibook_API.Extensions.Repositories
                 // Notify all admins
                 var adminMessage = $"Appointment {dto.appointment_id} has been cancelled. Patient ID: {appointment.patient_id}, Doctor ID: {appointment.doctor_id}";
                 await notificationService.SendNotificationToAdminsAsync(senderId, adminMessage);
-                
+
                 var response = new AppointmentResponseDto
                 {
                     appointment_id = appointment.appointment_id,
@@ -163,7 +163,7 @@ namespace medibook_API.Extensions.Repositories
             catch (Exception ex)
             {
                 logger.LogError(ex, $"Error in {nameof(CancelAppointmentAsync)}: {ex.Message}");
-                await logRepository.CreateLogAsync("CANCEL_APPOINTMENT", "ERROR", 
+                await logRepository.CreateLogAsync("CANCEL_APPOINTMENT", "ERROR",
                     $"Error cancelling appointment {dto.appointment_id}: {ex.Message}");
                 throw;
             }
@@ -180,7 +180,7 @@ namespace medibook_API.Extensions.Repositories
                 if (appointment == null)
                 {
                     logger.LogWarning($"Appointment with ID {dto.appointment_id} not found.");
-                    await logRepository.CreateLogAsync("CLOSE_APPOINTMENT", "WARNING", 
+                    await logRepository.CreateLogAsync("CLOSE_APPOINTMENT", "WARNING",
                         $"Appointment with ID {dto.appointment_id} not found for closing.");
                     return false;
                 }
@@ -189,8 +189,8 @@ namespace medibook_API.Extensions.Repositories
                 appointment.medicine = dto.medicine;
                 database.Appointments.Update(appointment);
                 await database.SaveChangesAsync();
-                
-                await logRepository.CreateLogAsync("CLOSE_APPOINTMENT", "SUCCESS", 
+
+                await logRepository.CreateLogAsync("CLOSE_APPOINTMENT", "SUCCESS",
                     $"Appointment {dto.appointment_id} closed successfully. Patient ID: {appointment.patient_id}, Doctor ID: {appointment.doctor_id}");
 
                 // Send notifications
@@ -200,7 +200,7 @@ namespace medibook_API.Extensions.Repositories
                 // Get related user IDs
                 var patient = await database.Users.FirstOrDefaultAsync(u => u.user_id == appointment.patient_id);
                 var doctor = await database.Doctors.FirstOrDefaultAsync(d => d.doctor_id == appointment.doctor_id);
-                var nurse = appointment.nurse_id.HasValue 
+                var nurse = appointment.nurse_id.HasValue
                     ? await database.Nurses.FirstOrDefaultAsync(n => n.nurse_id == appointment.nurse_id.Value)
                     : null;
 
@@ -230,14 +230,14 @@ namespace medibook_API.Extensions.Repositories
                 // Notify all admins
                 var adminMessage = $"Appointment {dto.appointment_id} has been completed. Patient ID: {appointment.patient_id}, Doctor ID: {appointment.doctor_id}";
                 await notificationService.SendNotificationToAdminsAsync(senderId, adminMessage);
-                
+
                 return true;
 
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, $"Error in {nameof(CloseAppointmentAsync)}: {ex.Message}");
-                await logRepository.CreateLogAsync("CLOSE_APPOINTMENT", "ERROR", 
+                await logRepository.CreateLogAsync("CLOSE_APPOINTMENT", "ERROR",
                     $"Error closing appointment {dto.appointment_id}: {ex.Message}");
                 throw;
             }
@@ -254,9 +254,9 @@ namespace medibook_API.Extensions.Repositories
                 if (dateExists)
                 {
                     logger.LogWarning($"Appointment date {dto.appointment_date} is already booked.");
-                    await logRepository.CreateLogAsync("CREATE_APPOINTMENT", "WARNING", 
+                    await logRepository.CreateLogAsync("CREATE_APPOINTMENT", "WARNING",
                         $"Failed to create appointment: Date {dto.appointment_date} is already booked. Patient ID: {dto.patient_id}, Doctor ID: {dto.doctor_id}");
-                    
+
                     return new AppointmentResponseDto
                     {
                         appointment_id = 0,
@@ -271,9 +271,9 @@ namespace medibook_API.Extensions.Repositories
                 if (!patientExists)
                 {
                     logger.LogWarning($"Patient with ID {dto.patient_id} does not exist.");
-                    await logRepository.CreateLogAsync("CREATE_APPOINTMENT", "ERROR", 
+                    await logRepository.CreateLogAsync("CREATE_APPOINTMENT", "ERROR",
                         $"Failed to create appointment: Patient with ID {dto.patient_id} does not exist.");
-                    
+
                     return new AppointmentResponseDto
                     {
                         appointment_id = 0,
@@ -288,9 +288,9 @@ namespace medibook_API.Extensions.Repositories
                 if (!doctorExists)
                 {
                     logger.LogWarning($"Doctor with ID {dto.doctor_id} does not exist.");
-                    await logRepository.CreateLogAsync("CREATE_APPOINTMENT", "ERROR", 
+                    await logRepository.CreateLogAsync("CREATE_APPOINTMENT", "ERROR",
                         $"Failed to create appointment: Doctor with ID {dto.doctor_id} does not exist.");
-                    
+
                     return new AppointmentResponseDto
                     {
                         appointment_id = 0,
@@ -318,7 +318,7 @@ namespace medibook_API.Extensions.Repositories
                     : date.AddMinutes(15 - remainder);
 
                 // Log successful appointment creation
-                await logRepository.CreateLogAsync("CREATE_APPOINTMENT", "SUCCESS", 
+                await logRepository.CreateLogAsync("CREATE_APPOINTMENT", "SUCCESS",
                     $"Appointment created successfully. Appointment ID: {appointment.appointment_id}, Patient ID: {dto.patient_id}, Doctor ID: {dto.doctor_id}, Date: {roundedDate}");
 
                 // Send notifications
@@ -328,7 +328,7 @@ namespace medibook_API.Extensions.Repositories
                 // Get doctor user ID
                 var doctor = await database.Doctors
                     .FirstOrDefaultAsync(d => d.doctor_id == dto.doctor_id);
-                
+
                 if (doctor != null)
                 {
                     var doctorMessage = $"New appointment scheduled for {roundedDate:yyyy-MM-dd hh:mm tt}. Patient: {senderId}";
@@ -352,7 +352,7 @@ namespace medibook_API.Extensions.Repositories
             catch (Exception ex)
             {
                 logger.LogError(ex, $"Error in {nameof(CreateAppintmentAsync)}: {ex.Message}");
-                await logRepository.CreateLogAsync("CREATE_APPOINTMENT", "ERROR", 
+                await logRepository.CreateLogAsync("CREATE_APPOINTMENT", "ERROR",
                     $"Error creating appointment: {ex.Message}. Patient ID: {dto.patient_id}, Doctor ID: {dto.doctor_id}");
                 throw;
             }
@@ -370,13 +370,12 @@ namespace medibook_API.Extensions.Repositories
                     .Include(a => a.Nurses)
                         .ThenInclude(n => n.Users)
                     .Include(a => a.Rooms)
-                    .AsNoTracking()
                     .ToListAsync();
 
                 logger.LogInformation($"Found {appointments.Count} appointments in database");
 
                 var appointmentDtos = appointments.Select(a => MapToNurseDetailsDto(a)).ToList();
-                
+
                 logger.LogInformation($"Mapped {appointmentDtos.Count} appointment DTOs");
 
                 return appointmentDtos;
@@ -514,7 +513,7 @@ namespace medibook_API.Extensions.Repositories
 
             }
         }
-        public async Task<IEnumerable<DateTime>> GetAllActiveAppointmentDatesAsync()
+        public async Task<IEnumerable<DateTime>> GetAllActiveAppointmentDatesAsync(int doctorid)
         {
             try
             {
@@ -528,7 +527,7 @@ namespace medibook_API.Extensions.Repositories
 
                 // Get all existing appointments in the remaining days of the current month
                 var bookedAppointments = await database.Appointments
-                    .Where(a => a.appointment_date >= startDate && a.appointment_date <= endDate)
+                    .Where(a => a.appointment_date >= startDate && a.appointment_date <= endDate && a.doctor_id == doctorid)
                     .Select(a => a.appointment_date)
                     .ToListAsync();
 
@@ -575,6 +574,7 @@ namespace medibook_API.Extensions.Repositories
         {
             return new AppointmentDetailsDto
             {
+                AppointmentDate = n.appointment_date,
                 AppointmentId = n.appointment_id, // Add this
                 PatientId = n.patient_id,
                 PatientFirstName = n.Patients?.first_name ?? "N/A",
@@ -599,7 +599,6 @@ namespace medibook_API.Extensions.Repositories
                 RoomName = n.Rooms?.room_name ?? "Not assigned",
                 RoomType = n.Rooms?.room_type ?? "Not assigned",
 
-                AppointmentDate = n.appointment_date,
                 Status = n.status,
                 Medicine = n.medicine,
                 Notes = n.notes,

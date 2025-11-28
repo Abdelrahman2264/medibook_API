@@ -116,6 +116,7 @@ namespace medibook_API.Controllers
             {
                 try
                 {
+                    
                     var response = await appointmentRepository.CancelAppointmentAsync(dto);
                     if (response.appointment_id == 0)
                         return BadRequest(response.message);
@@ -206,14 +207,14 @@ namespace medibook_API.Controllers
             }
 
             // GET: /api/Appointments/available-dates
-            [HttpGet("available-dates")]
+            [HttpGet("available-dates/{id:int}")]
             [ProducesResponseType(typeof(IEnumerable<string>), (int)HttpStatusCode.OK)]
             [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
-            public async Task<IActionResult> GetAllActiveAppointmentDates()
+            public async Task<IActionResult> GetAllActiveAppointmentDates(int id)
             {
                 try
                 {
-                    var dates = await appointmentRepository.GetAllActiveAppointmentDatesAsync();
+                    var dates = await appointmentRepository.GetAllActiveAppointmentDatesAsync(id);
 
                     // Format the dates to "yyyy-MM-dd hh:mm tt"
                     var formattedDates = dates.Select(d => d.ToString("yyyy-MM-dd hh:mm tt"));
