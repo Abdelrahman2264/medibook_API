@@ -295,6 +295,7 @@ namespace medibook_API.Controllers
         {
             try
             {
+            
                 if (id <= 0)
                 {
                     return BadRequest("Invalid notification ID.");

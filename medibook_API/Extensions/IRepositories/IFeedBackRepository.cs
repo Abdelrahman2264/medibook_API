@@ -1,4 +1,5 @@
 ﻿using medibook_API.Extensions.DTOs;
+using medibook_API.Extensions.DTOs.medibook_API.Extensions.DTOs;
 
 namespace medibook_API.Extensions.IRepositories
 {

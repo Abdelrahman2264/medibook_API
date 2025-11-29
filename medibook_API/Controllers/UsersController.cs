@@ -265,5 +265,31 @@ namespace medibook_API.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+        [HttpGet("currentrole")]
+        [ProducesResponseType(typeof(string), (int)HttpStatusCode.OK)]
+        [ProducesResponseType((int)HttpStatusCode.NotFound)]
+        [ProducesResponseType((int)HttpStatusCode.Unauthorized)]
+        [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> GetCurrentUserRole()
+        {
+            try
+            {
+                var role = userContextService.GetCurrentUserRole();
+
+                if (role  == null)
+                {
+                    return Unauthorized("Unable to retrieve current user role information from token.");
+                }
+
+
+
+                return Ok(role);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error occurred while retrieving current user.");
+                return StatusCode(500, "Internal server error");
+            }
+        }
     }
 }

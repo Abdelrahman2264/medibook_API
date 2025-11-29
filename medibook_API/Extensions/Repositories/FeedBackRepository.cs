@@ -1,5 +1,6 @@
 ﻿using medibook_API.Data;
 using medibook_API.Extensions.DTOs;
+using medibook_API.Extensions.DTOs.medibook_API.Extensions.DTOs;
 using medibook_API.Extensions.IRepositories;
 using medibook_API.Extensions.Services;
 using medibook_API.Models;
@@ -399,10 +400,6 @@ namespace medibook_API.Extensions.Repositories
                     feedback.comment = dto.Comment;
                 }
 
-                if (dto.Rate.HasValue && dto.Rate.Value >= 1 && dto.Rate.Value <= 5)
-                {
-                    feedback.rate = dto.Rate.Value;
-                }
 
                 _database.FeedBacks.Update(feedback);
                 await _database.SaveChangesAsync();

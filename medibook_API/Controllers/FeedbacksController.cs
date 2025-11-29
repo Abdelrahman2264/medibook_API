@@ -1,4 +1,5 @@
 using medibook_API.Extensions.DTOs;
+using medibook_API.Extensions.DTOs.medibook_API.Extensions.DTOs;
 using medibook_API.Extensions.IRepositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

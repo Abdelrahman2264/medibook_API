@@ -45,8 +45,27 @@ namespace medibook_API.Extensions.Repositories
 
                     return new CreatedResponseDto { Message = msg };
                 }
+                byte[]? profileImageBytes = null;
+                if (!string.IsNullOrEmpty(dto.ProfileImage))
+                {
+                    try
+                    {
+                        // Remove data URL prefix if present (e.g., "data:image/png;base64,")
+                        string base64String = dto.ProfileImage;
+                        if (base64String.Contains(","))
+                        {
+                            base64String = base64String.Split(',')[1];
+                        }
+                        profileImageBytes = Convert.FromBase64String(base64String);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Failed to convert base64 profile image to byte array");
+                        // Continue without profile image if conversion fails
+                    }
+                }
 
-                var user = new Users
+                    var user = new Users
                 {
                     first_name = stringNormalizer.NormalizeName(dto.FirstName),
                     last_name = stringNormalizer.NormalizeName(dto.LastName),
@@ -54,7 +73,7 @@ namespace medibook_API.Extensions.Repositories
                     mobile_phone = dto.MobilePhone,
                     gender = dto.Gender,
                     mitrial_status = dto.MitrialStatus,
-                    profile_image = dto.ProfileImage,
+                    profile_image = profileImageBytes,
                     date_of_birth = dto.DateOfBirth,
                     password_hash = passwordHasher.HashPassword(dto.Password),
                     create_date = DateTime.Now,
@@ -165,6 +184,35 @@ namespace medibook_API.Extensions.Repositories
             {
                 logger.LogError(ex, $"Error retrieving nurse with ID {id}");
                 await logRepository.CreateLogAsync("Get Nurse By ID", "Error", ex.Message);
+                return null;
+            }
+        }
+        public async Task<NurseDetailsDto> GetNurseByUserIdAsync(int id)
+        {
+            try
+            {
+                var nurse = await database.Nurses
+                    .Include(n => n.Users)
+                    .FirstOrDefaultAsync(n => n.user_id == id);
+
+                if (nurse == null)
+                {
+                    string msg = $"Nurse with User ID {id} not found.";
+                    logger.LogWarning(msg);
+                    await logRepository.CreateLogAsync("Get Nurse By User ID", "Error", msg);
+                    return null;
+                }
+
+                string successMsg = $"Nurse with User ID {id} retrieved.";
+                logger.LogInformation(successMsg);
+                await logRepository.CreateLogAsync("Get Nurse By User ID", "Success", successMsg);
+
+                return MapToNurseDetailsDto(nurse);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, $"Error retrieving nurse with User ID {id}");
+                await logRepository.CreateLogAsync("Get Nurse By User ID", "Error", ex.Message);
                 return null;
             }
         }

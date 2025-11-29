@@ -262,6 +262,36 @@ namespace medibook_API.Extensions.Repositories
                 return null;
             }
         }
+        public async Task<DoctorDetailsDto> GetDoctorByUserIdAsync(int id)
+        {
+            try
+            {
+                await Task.Delay(200);
+                var doctor = await database.Doctors
+                    .Include(d => d.Users)
+                    .FirstOrDefaultAsync(d => d.user_id == id);
+
+                if (doctor == null)
+                {
+                    string msg = $"Doctor with User ID {id} not found.";
+                    logger.LogWarning(msg);
+                    await logRepository.CreateLogAsync("Get Doctor By User ID", "Error", msg);
+                    return null;
+                }
+
+                string successMsg = $"Doctor with ID {id} retrieved.";
+                logger.LogInformation(successMsg);
+                await logRepository.CreateLogAsync("Get Doctor By User ID", "Success", successMsg);
+
+                return MapToDoctorDetailsDto(doctor);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, $"Error retrieving doctor with ID {id}");
+                await logRepository.CreateLogAsync("Get Doctor By User ID", "Error", ex.Message);
+                return null;
+            }
+        }
         public async Task<DoctorDetailsDto> UpdateDoctorAsync(int id, UpdateDoctorDto dto)
         {
             try

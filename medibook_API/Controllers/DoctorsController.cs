@@ -86,6 +86,31 @@ namespace medibook_API.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+        // GET: /api/Doctor/{id}
+        [HttpGet("byUserId/{id:int}")]
+        [ProducesResponseType(typeof(DoctorDetailsDto), (int)HttpStatusCode.OK)]
+        [ProducesResponseType((int)HttpStatusCode.NotFound)]
+        [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> GetDoctorByUserId(int id)
+        {
+            try
+            {
+                if (id <= 0)
+                    return BadRequest("Invalid doctor ID.");
+
+                var doctor = await doctorRepository.GetDoctorByUserIdAsync(id);
+
+                if (doctor == null)
+                    return NotFound($"Doctor with User ID {id} not found.");
+
+                return Ok(doctor);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, $"GetDoctorUserById: An error occurred while retrieving doctor with ID {id}.");
+                return StatusCode(500, "Internal server error");
+            }
+        }
 
         // POST: /api/Doctor/create
         [HttpPost("create")]

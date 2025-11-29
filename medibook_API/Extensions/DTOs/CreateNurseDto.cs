@@ -31,7 +31,7 @@ namespace medibook_API.Extensions.DTOs
         public string MitrialStatus { get; set; }
         [JsonPropertyName("profileImage")]
 
-        public byte[]? ProfileImage { get; set; }
+        public string? ProfileImage { get; set; }
         [JsonPropertyName("dateOfBirth")]
 
         public DateTime DateOfBirth { get; set; }

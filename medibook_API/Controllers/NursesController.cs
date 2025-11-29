@@ -80,6 +80,30 @@ namespace medibook_API.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+        // GET: /api/Nurses/{id}
+        [HttpGet("byUserId/{id:int}")]
+        [ProducesResponseType(typeof(NurseDetailsDto), (int)HttpStatusCode.OK)]
+        [ProducesResponseType((int)HttpStatusCode.NotFound)]
+        [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> GetNurseByUserId(int id)
+        {
+            try
+            {
+                if (id <= 0)
+                    return BadRequest("Invalid nurse user ID.");
+
+                var nurse = await nurseRepository.GetNurseByUserIdAsync(id);
+                if (nurse == null)
+                    return NotFound($"Nurse with user ID {id} not found.");
+
+                return Ok(nurse);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, $"Error occurred while retrieving nurse with user ID {id}.");
+                return StatusCode(500, "Internal server error");
+            }
+        }
 
         // POST: /api/Nurses/create
         [HttpPost("create")]
