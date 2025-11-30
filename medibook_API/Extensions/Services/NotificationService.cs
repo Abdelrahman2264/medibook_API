@@ -1,4 +1,5 @@
 using medibook_API.Data;
+using medibook_API.Extensions.DTOs;
 using medibook_API.Extensions.IRepositories;
 using medibook_API.Models;
 using Microsoft.EntityFrameworkCore;
@@ -22,15 +23,18 @@ namespace medibook_API.Extensions.Services
         private readonly Medibook_Context _database;
         private readonly ILogger<NotificationService> _logger;
         private readonly INotificationRepository _notificationRepository;
+        private readonly ISignalRService _signalRService;
 
         public NotificationService(
             Medibook_Context database,
             ILogger<NotificationService> logger,
-            INotificationRepository notificationRepository)
+            INotificationRepository notificationRepository,
+            ISignalRService signalRService)
         {
             _database = database;
             _logger = logger;
             _notificationRepository = notificationRepository;
+            _signalRService = signalRService;
         }
 
         public async Task<string> FormatUserNameWithTitleAsync(Users user)
@@ -105,13 +109,60 @@ namespace medibook_API.Extensions.Services
                     read_date = DateTime.Now
                 };
 
-                await _notificationRepository.CreateNotificationAsync(notification);
+                var createdNotification = await _notificationRepository.CreateNotificationAsync(notification);
                 _logger.LogInformation($"Notification sent from {senderUserId} to {receiverUserId}");
+
+                // Send real-time notification via SignalR immediately after creation
+                if (createdNotification.notification_id > 0)
+                {
+                    try
+                    {
+                        var notificationDto = await MapToNotificationDetailsDtoAsync(createdNotification);
+                        await _signalRService.SendNotificationToUserAsync(receiverUserId, notificationDto);
+                        _logger.LogInformation($"SignalR notification sent to user {receiverUserId} for notification {createdNotification.notification_id}");
+                    }
+                    catch (Exception signalREx)
+                    {
+                        _logger.LogError(signalREx, $"Failed to send SignalR notification to user {receiverUserId}, but notification was saved to database");
+                        // Don't throw - notification is already saved, SignalR failure shouldn't break the flow
+                    }
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error sending notification from {senderUserId} to {receiverUserId}: {ex.Message}");
             }
+        }
+
+        private async Task<NotificationDetailsDto> MapToNotificationDetailsDtoAsync(Notifications notification)
+        {
+            // Ensure related entities are loaded
+            if (notification.SendUsers == null || notification.RecieverUsers == null)
+            {
+                notification = await _database.Notifications
+                    .Include(n => n.SendUsers)
+                    .Include(n => n.RecieverUsers)
+                    .FirstOrDefaultAsync(n => n.notification_id == notification.notification_id);
+            }
+
+            return new NotificationDetailsDto
+            {
+                NotificationId = notification.notification_id,
+                Message = notification.message,
+                IsRead = notification.is_read,
+                CreateDate = notification.create_date,
+                ReadDate = notification.is_read ? notification.read_date : null,
+                SenderUserId = notification.sender_user_id,
+                SenderName = notification.SendUsers != null
+                    ? $"{notification.SendUsers.first_name} {notification.SendUsers.last_name}"
+                    : "Unknown",
+                SenderEmail = notification.SendUsers?.email ?? "N/A",
+                ReceiverUserId = notification.reciever_user_id,
+                ReceiverName = notification.RecieverUsers != null
+                    ? $"{notification.RecieverUsers.first_name} {notification.RecieverUsers.last_name}"
+                    : "Unknown",
+                ReceiverEmail = notification.RecieverUsers?.email ?? "N/A"
+            };
         }
 
         public async Task SendNotificationsToUsersAsync(int senderUserId, List<int> receiverUserIds, string message)

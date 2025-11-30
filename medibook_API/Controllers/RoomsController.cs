@@ -1,5 +1,7 @@
 ﻿using medibook_API.Extensions.DTOs;
+using medibook_API.Extensions.Helpers;
 using medibook_API.Extensions.IRepositories;
+using medibook_API.Extensions.Services;
 using medibook_API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -15,11 +17,16 @@ namespace medibook_API.Controllers
     {
         private readonly IRoomRepository roomRepository;
         private readonly ILogger<RoomsController> logger;
+        private readonly ISignalRService signalRService;
 
-        public RoomsController(IRoomRepository roomRepository, ILogger<RoomsController> logger)
+        public RoomsController(
+            IRoomRepository roomRepository, 
+            ILogger<RoomsController> logger,
+            ISignalRService signalRService)
         {
             this.roomRepository = roomRepository;
             this.logger = logger;
+            this.signalRService = signalRService;
         }
 
         // GET: /api/Rooms
@@ -96,6 +103,17 @@ namespace medibook_API.Controllers
                 {
                     return BadRequest("Failed to create room.");
                 }
+
+                // Send real-time update via SignalR
+                await SignalRHelper.NotifyCreatedAsync(
+                    signalRService,
+                    "Room",
+                    new { 
+                        RoomId = createdRoom.RoomId,
+                        RoomName = createdRoom.RoomName,
+                        RoomType = createdRoom.RoomType
+                    }
+                );
 
                 return CreatedAtAction(nameof(GetRoomById), new { id = createdRoom.RoomId }, createdRoom);
             }
@@ -180,6 +198,17 @@ namespace medibook_API.Controllers
                     return BadRequest("Failed to update room.");
                 }
 
+                // Send real-time update via SignalR
+                await SignalRHelper.NotifyUpdatedAsync(
+                    signalRService,
+                    "Room",
+                    new { 
+                        RoomId = updatedRoom.RoomId,
+                        RoomName = updatedRoom.RoomName,
+                        RoomType = updatedRoom.RoomType
+                    }
+                );
+
                 return Ok(updatedRoom);
             }
             catch (Exception ex)
@@ -209,6 +238,13 @@ namespace medibook_API.Controllers
                 {
                     return BadRequest("Failed to delete room.");
                 }
+
+                // Send real-time update via SignalR
+                await SignalRHelper.NotifyDeletedAsync(
+                    signalRService,
+                    "Room",
+                    id
+                );
 
                 return Ok($"Room with ID {id} deleted successfully.");
             }

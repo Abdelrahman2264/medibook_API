@@ -386,10 +386,14 @@ namespace medibook_API.Data
                     .HasColumnType("INT")
                     .ValueGeneratedOnAdd();
 
-                entity.Property(e => e.report_pdf)
-                    .IsRequired()
-                    .HasColumnName("report_pdf")
+                entity.Property(e => e.report_file)
+                    .HasColumnName("report_file")
                     .HasColumnType("varbinary(max)");
+
+                entity.Property(e => e.file_format)
+                    .IsRequired()
+                    .HasColumnName("file_format")
+                    .HasMaxLength(50);
 
                 entity.Property(e => e.ReportDate)
                     .IsRequired()
@@ -398,12 +402,20 @@ namespace medibook_API.Data
                 entity.Property(e => e.report_type)
                     .IsRequired()
                     .HasColumnName("report_type")
-                    .HasMaxLength(50);
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.period_type)
+                    .HasColumnName("period_type")
+                    .HasMaxLength(200);
 
                 entity.Property(e => e.description)
                     .HasColumnName("description")
-                    .IsRequired()
                     .HasMaxLength(500);
+
+                entity.Property(e => e.file_name)
+                    .IsRequired()
+                    .HasColumnName("file_name")
+                    .HasMaxLength(255);
 
             });
 

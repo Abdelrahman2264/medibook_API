@@ -15,19 +15,22 @@ namespace medibook_API.Extensions.Repositories
         private readonly ILogRepository _logRepository;
         private readonly IUserContextService _userContextService;
         private readonly INotificationService _notificationService;
+        private readonly EmailServices _emailService;
 
         public FeedBackRepository(
             Medibook_Context database,
             ILogger<FeedBackRepository> logger,
             ILogRepository logRepository,
             IUserContextService userContextService,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            EmailServices emailService)
         {
             _database = database;
             _logger = logger;
             _logRepository = logRepository;
             _userContextService = userContextService;
             _notificationService = notificationService;
+            _emailService = emailService;
         }
 
         public async Task<FeedbackResponseDto> CreateFeedbackAsync(CreateFeedbackDto dto)
@@ -109,6 +112,31 @@ namespace medibook_API.Extensions.Repositories
                 var adminMessage = $"New feedback created. Feedback ID: {feedback.feedback_id}, Patient ID: {dto.PatientId}, Doctor ID: {dto.DoctorId}, Rate: {dto.Rate}/5";
                 await _notificationService.SendNotificationToAdminsAsync(senderId, adminMessage);
 
+                // Send emails to doctor and patient
+                try
+                {
+                    var doctorUser = await _database.Users.FirstOrDefaultAsync(u => u.user_id == doctor.user_id);
+                    var patientUser = await _database.Users.FirstOrDefaultAsync(u => u.user_id == dto.PatientId);
+                    
+                    if (doctorUser != null && patientUser != null)
+                    {
+                        var doctorName = $"Dr. {doctorUser.first_name} {doctorUser.last_name}";
+                        var patientName = $"{patientUser.first_name} {patientUser.last_name}";
+                        
+                        await _emailService.SendFeedbackCreatedEmailAsync(
+                            doctorUser.email, doctorName,
+                            patientUser.email, patientName,
+                            feedback.feedback_id, dto.Rate, dto.Comment, dto.AppointmentId
+                        );
+                        _logger.LogInformation($"Feedback created emails sent to doctor and patient for feedback {feedback.feedback_id}");
+                    }
+                }
+                catch (Exception emailEx)
+                {
+                    _logger.LogError(emailEx, $"Failed to send feedback created emails for feedback {feedback.feedback_id}");
+                    // Don't fail the feedback creation if email fails
+                }
+
                 return new FeedbackResponseDto
                 {
                     FeedbackId = feedback.feedback_id,
@@ -172,6 +200,31 @@ namespace medibook_API.Extensions.Repositories
                 // Send to all admins
                 var adminMessage = $"Doctor reply added to feedback {dto.FeedbackId}. Doctor ID: {feedback.doctor_id}, Patient ID: {feedback.patient_id}";
                 await _notificationService.SendNotificationToAdminsAsync(senderId, adminMessage);
+
+                // Send email to patient
+                try
+                {
+                    var doctorUser = await _database.Users.FirstOrDefaultAsync(u => u.user_id == feedback.doctor_id);
+                    var patientUser = await _database.Users.FirstOrDefaultAsync(u => u.user_id == feedback.patient_id);
+                    
+                    if (doctorUser != null && patientUser != null)
+                    {
+                        var doctorName = $"Dr. {doctorUser.first_name} {doctorUser.last_name}";
+                        var patientName = $"{patientUser.first_name} {patientUser.last_name}";
+                        
+                        await _emailService.SendDoctorReplyEmailAsync(
+                            patientUser.email, patientName,
+                            doctorName,
+                            feedback.feedback_id, dto.DoctorReply, feedback.appointment_id
+                        );
+                        _logger.LogInformation($"Doctor reply email sent to patient for feedback {feedback.feedback_id}");
+                    }
+                }
+                catch (Exception emailEx)
+                {
+                    _logger.LogError(emailEx, $"Failed to send doctor reply email for feedback {feedback.feedback_id}");
+                    // Don't fail the reply if email fails
+                }
 
                 return new FeedbackResponseDto
                 {

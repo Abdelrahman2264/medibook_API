@@ -3,6 +3,7 @@ using medibook_API.Extensions.DTOs;
 using medibook_API.Extensions.IRepositories;
 using medibook_API.Extensions.Repositories;
 using medibook_API.Extensions.Services;
+using medibook_API.Hubs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -47,10 +48,28 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = jwtSettings["Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(key)
     };
+    
+    // Configure SignalR JWT authentication
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notificationhub"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddAuthorization();
+
+// SignalR Configuration
+builder.Services.AddSignalR();
 
 // Repository registrations
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
@@ -69,16 +88,37 @@ builder.Services.AddScoped<StringNormalizer>();
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<EmailServices>();
 builder.Services.AddScoped<IUserContextService, UserContextService>();
+builder.Services.AddScoped<ISignalRService, SignalRService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 
-// Enable CORS
+// Enable CORS - Must allow credentials for SignalR
+// Note: AllowAnyOrigin() cannot be used with AllowCredentials()
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.SetIsOriginAllowed(origin => 
+              {
+                  // Allow localhost with any port for development
+                  if (string.IsNullOrEmpty(origin)) return false;
+                  
+                  try
+                  {
+                      var uri = new Uri(origin);
+                      return uri.Host == "localhost" || 
+                             uri.Host == "127.0.0.1" || 
+                             uri.Host == "::1" ||
+                             origin.Contains("localhost") ||
+                             origin.Contains("127.0.0.1");
+                  }
+                  catch
+                  {
+                      return false;
+                  }
+              })
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials(); // Required for SignalR
     });
 });
 
@@ -133,11 +173,14 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Enable CORS
+// Enable CORS - Must be before UseAuthentication and UseAuthorization
 app.UseCors("AllowAll");
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Map SignalR Hub - Must be after CORS, Authentication, and Authorization
+app.MapHub<NotificationHub>("/notificationhub");
 
 app.MapControllers();
 

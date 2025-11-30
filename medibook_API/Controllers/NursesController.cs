@@ -1,5 +1,7 @@
 ﻿using medibook_API.Extensions.DTOs;
+using medibook_API.Extensions.Helpers;
 using medibook_API.Extensions.IRepositories;
+using medibook_API.Extensions.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
@@ -13,11 +15,16 @@ namespace medibook_API.Controllers
     {
         private readonly ILogger<NursesController> logger;
         private readonly INurseRepository nurseRepository;
+        private readonly ISignalRService signalRService;
 
-        public NursesController(ILogger<NursesController> logger, INurseRepository nurseRepository)
+        public NursesController(
+            ILogger<NursesController> logger, 
+            INurseRepository nurseRepository,
+            ISignalRService signalRService)
         {
             this.logger = logger;
             this.nurseRepository = nurseRepository;
+            this.signalRService = signalRService;
         }
 
         // GET: /api/Nurses/all
@@ -119,6 +126,19 @@ namespace medibook_API.Controllers
                 if (createdNurse.UserId <= 0)
                     return BadRequest(createdNurse.Message);
 
+                // Send real-time update via SignalR
+                await SignalRHelper.NotifyCreatedAsync(
+                    signalRService,
+                    "Nurse",
+                    new { 
+                        NurseId = createdNurse.TypeId,
+                        UserId = createdNurse.UserId,
+                        Email = dto.Email,
+                        FirstName = dto.FirstName,
+                        LastName = dto.LastName
+                    }
+                );
+
                 return CreatedAtAction(nameof(GetNurseById), new { id = createdNurse.TypeId }, createdNurse);
             }
             catch (Exception ex)
@@ -144,6 +164,19 @@ namespace medibook_API.Controllers
                 var updatedNurse = await nurseRepository.UpdateNurseAsync(id, dto);
                 if (updatedNurse == null)
                     return NotFound($"Nurse with ID {id} not found.");
+
+                // Send real-time update via SignalR
+                await SignalRHelper.NotifyUpdatedAsync(
+                    signalRService,
+                    "Nurse",
+                    new { 
+                        NurseId = updatedNurse.NurseId,
+                        UserId = updatedNurse.UserId,
+                        FirstName = updatedNurse.FirstName,
+                        LastName = updatedNurse.LastName
+                    },
+                    updatedNurse.UserId
+                );
 
                 return Ok(updatedNurse);
             }

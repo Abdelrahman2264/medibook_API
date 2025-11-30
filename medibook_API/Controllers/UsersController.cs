@@ -1,4 +1,5 @@
 ﻿using medibook_API.Extensions.DTOs;
+using medibook_API.Extensions.Helpers;
 using medibook_API.Extensions.IRepositories;
 using medibook_API.Extensions.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -15,12 +16,18 @@ namespace medibook_API.Controllers
         private readonly ILogger<UsersController> logger;
         private readonly IUserRepository userRepository;
         private readonly IUserContextService userContextService;
+        private readonly ISignalRService signalRService;
 
-        public UsersController(ILogger<UsersController> logger, IUserRepository userRepository, IUserContextService userContextService)
+        public UsersController(
+            ILogger<UsersController> logger, 
+            IUserRepository userRepository, 
+            IUserContextService userContextService,
+            ISignalRService signalRService)
         {
             this.logger = logger;
             this.userRepository = userRepository;
             this.userContextService = userContextService;
+            this.signalRService = signalRService;
         }
 
         // GET: /api/Users/all
@@ -170,6 +177,18 @@ namespace medibook_API.Controllers
                 if (createdUser.UserId <= 0)
                     return BadRequest(createdUser.Message);
 
+                // Send real-time update via SignalR
+                await SignalRHelper.NotifyCreatedAsync(
+                    signalRService,
+                    "User",
+                    new { 
+                        UserId = createdUser.UserId,
+                        Email = dto.Email,
+                        FirstName = dto.FirstName,
+                        LastName = dto.LastName
+                    }
+                );
+
                 return CreatedAtAction(nameof(GetUserById), new { id = createdUser.UserId }, createdUser);
             }
             catch (Exception ex)
@@ -202,6 +221,19 @@ namespace medibook_API.Controllers
                 var updatedUser = await userRepository.UpdateUserAsync(dto, id);
                 if (updatedUser == null)
                     return NotFound($"User with ID {id} not found.");
+
+                // Send real-time update via SignalR to the updated user
+                await SignalRHelper.NotifyUpdatedAsync(
+                    signalRService,
+                    "User",
+                    new { 
+                        UserId = updatedUser.Id,
+                        FirstName = updatedUser.FirstName,
+                        LastName = updatedUser.LastName,
+                        Email = updatedUser.Email
+                    },
+                    updatedUser.Id
+                );
 
                 return Ok(updatedUser);
             }

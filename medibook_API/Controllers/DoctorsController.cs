@@ -1,5 +1,7 @@
 ﻿using medibook_API.Extensions.DTOs;
+using medibook_API.Extensions.Helpers;
 using medibook_API.Extensions.IRepositories;
+using medibook_API.Extensions.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
@@ -14,15 +16,18 @@ namespace medibook_API.Controllers
         private readonly ILogger<DoctorsController> logger;
         private readonly IDoctorRepository doctorRepository;
         private readonly IUserRepository userRepository;
+        private readonly ISignalRService signalRService;
 
         public DoctorsController(
             ILogger<DoctorsController> logger, 
             IDoctorRepository doctorRepository,
-            IUserRepository userRepository)
+            IUserRepository userRepository,
+            ISignalRService signalRService)
         {
             this.logger = logger;
             this.doctorRepository = doctorRepository;
             this.userRepository = userRepository;
+            this.signalRService = signalRService;
         }
 
         // GET: /api/Doctor/all
@@ -167,6 +172,20 @@ namespace medibook_API.Controllers
                     return BadRequest(result.Message);
                 }
 
+                // Send real-time update via SignalR
+                await SignalRHelper.NotifyCreatedAsync(
+                    signalRService,
+                    "Doctor",
+                    new { 
+                        DoctorId = result.TypeId,
+                        UserId = result.UserId,
+                        Email = dto.Email,
+                        FirstName = dto.FirstName,
+                        LastName = dto.LastName,
+                        Specialization = dto.Specialization
+                    }
+                );
+
                 logger.LogInformation("CreateDoctor: Doctor created successfully with ID {DoctorId}", result.TypeId);
                 return CreatedAtAction(nameof(GetDoctorById), new { id = result.TypeId }, result);
             }
@@ -194,6 +213,20 @@ namespace medibook_API.Controllers
 
                 if (updatedDoctor == null)
                     return NotFound($"Doctor with ID {id} not found or update failed.");
+
+                // Send real-time update via SignalR
+                await SignalRHelper.NotifyUpdatedAsync(
+                    signalRService,
+                    "Doctor",
+                    new { 
+                        DoctorId = updatedDoctor.DoctorId,
+                        UserId = updatedDoctor.UserId,
+                        FirstName = updatedDoctor.FirstName,
+                        LastName = updatedDoctor.LastName,
+                        Specialization = updatedDoctor.Specialization
+                    },
+                    updatedDoctor.UserId
+                );
 
                 return Ok(updatedDoctor);
             }

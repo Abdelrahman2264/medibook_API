@@ -3,7 +3,9 @@
 namespace medibook_API.Controllers
 {
     using global::medibook_API.Extensions.DTOs;
+    using global::medibook_API.Extensions.Helpers;
     using global::medibook_API.Extensions.IRepositories;
+    using global::medibook_API.Extensions.Services;
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Mvc;
     using System.Net;
@@ -17,11 +19,16 @@ namespace medibook_API.Controllers
         {
             private readonly ILogger<AppointmentsController> logger;
             private readonly IAppointmentRepository appointmentRepository;
+            private readonly ISignalRService signalRService;
 
-            public AppointmentsController(ILogger<AppointmentsController> logger, IAppointmentRepository appointmentRepository)
+            public AppointmentsController(
+                ILogger<AppointmentsController> logger, 
+                IAppointmentRepository appointmentRepository,
+                ISignalRService signalRService)
             {
                 this.logger = logger;
                 this.appointmentRepository = appointmentRepository;
+                this.signalRService = signalRService;
             }
 
             // GET: /api/Appointments
@@ -76,6 +83,22 @@ namespace medibook_API.Controllers
                 try
                 {
                     var response = await appointmentRepository.CreateAppintmentAsync(dto);
+                    
+                    if (response.appointment_id > 0)
+                    {
+                        // Send real-time update via SignalR
+                        await SignalRHelper.NotifyCreatedAsync(
+                            signalRService,
+                            "Appointment",
+                            new { 
+                                AppointmentId = response.appointment_id,
+                                PatientId = dto.patient_id,
+                                DoctorId = dto.doctor_id,
+                                AppointmentDate = response.appointment_date
+                            }
+                        );
+                    }
+                    
                     return CreatedAtAction(nameof(GetAppointmentById), new { id = response.appointment_id }, response);
                 }
                 catch (Exception ex)
@@ -97,6 +120,18 @@ namespace medibook_API.Controllers
                     var success = await appointmentRepository.AssignAppointmentAsync(dto);
                     if (!success)
                         return BadRequest("Failed to assign appointment. Check appointment, nurse, or room IDs.");
+
+                    // Send real-time update via SignalR
+                    await SignalRHelper.NotifyUpdatedAsync(
+                        signalRService,
+                        "Appointment",
+                        new { 
+                            AppointmentId = dto.appointment_id,
+                            Action = "Assigned",
+                            NurseId = dto.nurse_id,
+                            RoomId = dto.room_id
+                        }
+                    );
 
                     return Ok("Appointment assigned successfully.");
                 }
@@ -121,6 +156,17 @@ namespace medibook_API.Controllers
                     if (response.appointment_id == 0)
                         return BadRequest(response.message);
 
+                    // Send real-time update via SignalR
+                    await SignalRHelper.NotifyUpdatedAsync(
+                        signalRService,
+                        "Appointment",
+                        new { 
+                            AppointmentId = response.appointment_id,
+                            Action = "Cancelled",
+                            CancellationReason = dto.cancellation_reason
+                        }
+                    );
+
                     return Ok(response);
                 }
                 catch (Exception ex)
@@ -142,6 +188,16 @@ namespace medibook_API.Controllers
                     var success = await appointmentRepository.CloseAppointmentAsync(dto);
                     if (!success)
                         return BadRequest("Failed to close appointment. Check appointment ID.");
+
+                    // Send real-time update via SignalR
+                    await SignalRHelper.NotifyUpdatedAsync(
+                        signalRService,
+                        "Appointment",
+                        new { 
+                            AppointmentId = dto.appointment_id,
+                            Action = "Closed"
+                        }
+                    );
 
                     return Ok("Appointment closed successfully.");
                 }

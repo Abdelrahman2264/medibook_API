@@ -1,6 +1,8 @@
 using medibook_API.Extensions.DTOs;
 using medibook_API.Extensions.DTOs.medibook_API.Extensions.DTOs;
+using medibook_API.Extensions.Helpers;
 using medibook_API.Extensions.IRepositories;
+using medibook_API.Extensions.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
@@ -14,11 +16,16 @@ namespace medibook_API.Controllers
     {
         private readonly ILogger<FeedbacksController> _logger;
         private readonly IFeedBackRepository _feedbackRepository;
+        private readonly ISignalRService _signalRService;
 
-        public FeedbacksController(ILogger<FeedbacksController> logger, IFeedBackRepository feedbackRepository)
+        public FeedbacksController(
+            ILogger<FeedbacksController> logger, 
+            IFeedBackRepository feedbackRepository,
+            ISignalRService signalRService)
         {
             _logger = logger;
             _feedbackRepository = feedbackRepository;
+            _signalRService = signalRService;
         }
 
         // POST: /api/Feedbacks/create
@@ -56,6 +63,18 @@ namespace medibook_API.Controllers
                 {
                     return BadRequest(result);
                 }
+
+                // Send real-time update via SignalR
+                await SignalRHelper.NotifyCreatedAsync(
+                    _signalRService,
+                    "Feedback",
+                    new { 
+                        FeedbackId = result.FeedbackId,
+                        PatientId = dto.PatientId,
+                        DoctorId = dto.DoctorId,
+                        Rate = dto.Rate
+                    }
+                );
 
                 return CreatedAtAction(nameof(GetFeedbackById), new { id = result.FeedbackId }, result);
             }
@@ -142,6 +161,13 @@ namespace medibook_API.Controllers
                 {
                     return NotFound($"Feedback with ID {id} not found.");
                 }
+
+                // Send real-time update via SignalR
+                await SignalRHelper.NotifyDeletedAsync(
+                    _signalRService,
+                    "Feedback",
+                    id
+                );
 
                 return Ok(new { Message = "Feedback deleted successfully." });
             }
@@ -341,6 +367,9 @@ namespace medibook_API.Controllers
         }
     }
 }
+
+
+
 
 
 

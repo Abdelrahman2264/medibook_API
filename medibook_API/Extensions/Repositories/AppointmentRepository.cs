@@ -14,19 +14,22 @@ namespace medibook_API.Extensions.Repositories
         private readonly ILogRepository logRepository;
         private readonly INotificationService notificationService;
         private readonly IUserContextService userContextService;
+        private readonly EmailServices emailService;
 
         public AppointmentRepository(
             Medibook_Context database,
             ILogger<AppointmentRepository> logger,
             ILogRepository logRepository,
             INotificationService notificationService,
-            IUserContextService userContextService)
+            IUserContextService userContextService,
+            EmailServices emailService)
         {
             this.database = database;
             this.logger = logger;
             this.logRepository = logRepository;
             this.notificationService = notificationService;
             this.userContextService = userContextService;
+            this.emailService = emailService;
         }
 
         public async Task<bool> AssignAppointmentAsync(AssignAppoinmentDto dto)
@@ -150,6 +153,36 @@ namespace medibook_API.Extensions.Repositories
                 var adminMessage = $"Appointment {dto.appointment_id} has been cancelled. Patient ID: {appointment.patient_id}, Doctor ID: {appointment.doctor_id}";
                 await notificationService.SendNotificationToAdminsAsync(senderId, adminMessage);
 
+                // Send emails to patient and doctor
+                try
+                {
+                    var appointmentDetails = await GetAppointmentDetailsForEmailAsync(dto.appointment_id);
+                    if (appointmentDetails != null)
+                    {
+                        var doctorUser = await database.Users.FirstOrDefaultAsync(u => u.user_id == doctor.user_id);
+                        var patientUser = await database.Users.FirstOrDefaultAsync(u => u.user_id == appointment.patient_id);
+                        
+                        if (doctorUser != null && patientUser != null)
+                        {
+                            var doctorName = $"Dr. {doctorUser.first_name} {doctorUser.last_name}";
+                            var patientName = $"{patientUser.first_name} {patientUser.last_name}";
+                            
+                            await emailService.SendAppointmentCancelledEmailAsync(
+                                doctorUser.email, doctorName,
+                                patientUser.email, patientName,
+                                appointmentDetails,
+                                string.IsNullOrEmpty(dto.cancellation_reason) ? "No reason provided" : dto.cancellation_reason
+                            );
+                            logger.LogInformation($"Appointment cancelled emails sent for appointment {dto.appointment_id}");
+                        }
+                    }
+                }
+                catch (Exception emailEx)
+                {
+                    logger.LogError(emailEx, $"Failed to send appointment cancelled emails for appointment {dto.appointment_id}");
+                    // Don't fail the cancellation if email fails
+                }
+
                 var response = new AppointmentResponseDto
                 {
                     appointment_id = appointment.appointment_id,
@@ -230,6 +263,51 @@ namespace medibook_API.Extensions.Repositories
                 // Notify all admins
                 var adminMessage = $"Appointment {dto.appointment_id} has been completed. Patient ID: {appointment.patient_id}, Doctor ID: {appointment.doctor_id}";
                 await notificationService.SendNotificationToAdminsAsync(senderId, adminMessage);
+
+                // Send emails to nurse, doctor, and patient
+                try
+                {
+                    var appointmentDetails = await GetAppointmentDetailsForEmailAsync(dto.appointment_id);
+                    if (appointmentDetails != null)
+                    {
+                        var doctorUser = await database.Users.FirstOrDefaultAsync(u => u.user_id == doctor.user_id);
+                        var patientUser = await database.Users.FirstOrDefaultAsync(u => u.user_id == appointment.patient_id);
+                        Users nurseUser = null;
+                        string nurseName = "";
+                        string nurseEmail = "";
+                        
+                        if (nurse != null)
+                        {
+                            nurseUser = await database.Users.FirstOrDefaultAsync(u => u.user_id == nurse.user_id);
+                            if (nurseUser != null)
+                            {
+                                nurseName = $"{nurseUser.first_name} {nurseUser.last_name}";
+                                nurseEmail = nurseUser.email;
+                            }
+                        }
+                        
+                        if (doctorUser != null && patientUser != null)
+                        {
+                            var doctorName = $"Dr. {doctorUser.first_name} {doctorUser.last_name}";
+                            var patientName = $"{patientUser.first_name} {patientUser.last_name}";
+                            
+                            await emailService.SendAppointmentClosedEmailAsync(
+                                nurseEmail, nurseName,
+                                doctorUser.email, doctorName,
+                                patientUser.email, patientName,
+                                appointmentDetails,
+                                dto.notes ?? "",
+                                dto.medicine ?? ""
+                            );
+                            logger.LogInformation($"Appointment closed emails sent for appointment {dto.appointment_id}");
+                        }
+                    }
+                }
+                catch (Exception emailEx)
+                {
+                    logger.LogError(emailEx, $"Failed to send appointment closed emails for appointment {dto.appointment_id}");
+                    // Don't fail the closing if email fails
+                }
 
                 return true;
 
@@ -338,6 +416,35 @@ namespace medibook_API.Extensions.Repositories
                 // Send to all admins
                 var adminMessage = $"New appointment created. Appointment ID: {appointment.appointment_id}, Date: {roundedDate:yyyy-MM-dd hh:mm tt}";
                 await notificationService.SendNotificationToAdminsAsync(senderId, adminMessage);
+
+                // Send emails to doctor and patient
+                try
+                {
+                    var appointmentDetails = await GetAppointmentDetailsForEmailAsync(appointment.appointment_id);
+                    if (appointmentDetails != null)
+                    {
+                        var doctorUser = await database.Users.FirstOrDefaultAsync(u => u.user_id == doctor.user_id);
+                        var patientUser = await database.Users.FirstOrDefaultAsync(u => u.user_id == dto.patient_id);
+                        
+                        if (doctorUser != null && patientUser != null)
+                        {
+                            var doctorName = $"Dr. {doctorUser.first_name} {doctorUser.last_name}";
+                            var patientName = $"{patientUser.first_name} {patientUser.last_name}";
+                            
+                            await emailService.SendAppointmentCreatedEmailAsync(
+                                doctorUser.email, doctorName,
+                                patientUser.email, patientName,
+                                appointmentDetails
+                            );
+                            logger.LogInformation($"Appointment created emails sent to doctor and patient for appointment {appointment.appointment_id}");
+                        }
+                    }
+                }
+                catch (Exception emailEx)
+                {
+                    logger.LogError(emailEx, $"Failed to send appointment created emails for appointment {appointment.appointment_id}");
+                    // Don't fail the appointment creation if email fails
+                }
 
                 var response = new AppointmentResponseDto
                 {
@@ -603,6 +710,29 @@ namespace medibook_API.Extensions.Repositories
                 Medicine = n.medicine,
                 Notes = n.notes,
             };
+        }
+
+        private async Task<AppointmentDetailsDto> GetAppointmentDetailsForEmailAsync(int appointmentId)
+        {
+            try
+            {
+                var appointment = await database.Appointments
+                    .Include(a => a.Patients)
+                    .Include(a => a.Doctors).ThenInclude(d => d.Users)
+                    .Include(a => a.Nurses).ThenInclude(n => n.Users)
+                    .Include(a => a.Rooms)
+                    .FirstOrDefaultAsync(a => a.appointment_id == appointmentId);
+
+                if (appointment == null)
+                    return null;
+
+                return MapToNurseDetailsDto(appointment);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, $"Error getting appointment details for email: {ex.Message}");
+                return null;
+            }
         }
 
     }

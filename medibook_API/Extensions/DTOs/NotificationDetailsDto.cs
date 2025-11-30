@@ -38,3 +38,5 @@ namespace medibook_API.Extensions.DTOs
         public string ReceiverEmail { get; set; } = string.Empty;
     }
 }
+
+
