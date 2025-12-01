@@ -10,7 +10,6 @@ namespace medibook_API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
     public class UsersController : Controller
     {
         private readonly ILogger<UsersController> logger;

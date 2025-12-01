@@ -228,6 +228,7 @@ namespace medibook_API.Extensions.Repositories
                 var users = await database.Users
                     .Include(r => r.Role)
                     .Where(u => u.is_active)
+                    .Where(u => u.Role.role_name.ToLower() == "user")
                     .ToListAsync();
 
                 await logRepository.CreateLogAsync("Get Active Users", "Success", "Retrieved active users list");
@@ -247,6 +248,7 @@ namespace medibook_API.Extensions.Repositories
             {
                 var users = await database.Users
                     .Include(r => r.Role)
+                    .Where(u => u.Role.role_name.ToLower() == "user")
                     .ToListAsync();
 
                 await logRepository.CreateLogAsync("Get All Users", "Success", "Retrieved all users");

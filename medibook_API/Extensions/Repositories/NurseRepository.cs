@@ -158,6 +158,43 @@ namespace medibook_API.Extensions.Repositories
                 return Enumerable.Empty<NurseDetailsDto>();
             }
         }
+        public async Task<IEnumerable<NurseDetailsDto>> GetAllActiveNursesAsync(DateTime appointmentDate)
+        {
+            try
+            {
+                // Get the start and end of the day for the appointment date
+                var startOfDay = appointmentDate.Date;
+                var endOfDay = startOfDay.AddDays(1).AddTicks(-1);
+
+                // Get all nurse IDs that have appointments on this date
+                var nursesWithAppointments = await database.Appointments
+                    .Where(a => a.nurse_id.HasValue && 
+                                a.appointment_date >= startOfDay && 
+                                a.appointment_date <= endOfDay)
+                    .Select(a => a.nurse_id.Value)
+                    .Distinct()
+                    .ToListAsync();
+
+                // Get active nurses that don't have appointments on this date
+                var nurses = await database.Nurses
+                    .Include(n => n.Users)
+                    .Where(n => n.Users.is_active && !nursesWithAppointments.Contains(n.nurse_id))
+                    .ToListAsync();
+
+                string msg = $"Fetched {nurses.Count} active nurses without appointments on {appointmentDate:yyyy-MM-dd}.";
+                logger.LogInformation(msg);
+                await logRepository.CreateLogAsync("Get Active Nurses By Date", "Success", msg);
+
+                return nurses.Select(MapToNurseDetailsDto);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error retrieving active nurses by date");
+                await logRepository.CreateLogAsync("Get Active Nurses By Date", "Error", ex.Message);
+
+                return Enumerable.Empty<NurseDetailsDto>();
+            }
+        }
         public async Task<NurseDetailsDto> GetNurseByIdAsync(int id)
         {
             try

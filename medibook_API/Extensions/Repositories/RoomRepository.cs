@@ -141,6 +141,42 @@ namespace medibook_API.Extensions.Repositories
                 return Enumerable.Empty<RoomDetailsDto>();
             }
         }
+        public async Task<IEnumerable<RoomDetailsDto>> GetALlActiveAsync(DateTime appointmentDate)
+        {
+            try
+            {
+                // Get the start and end of the day for the appointment date
+                var startOfDay = appointmentDate.Date;
+                var endOfDay = startOfDay.AddDays(1).AddTicks(-1);
+
+                // Get all room IDs that have appointments on this date
+                var roomsWithAppointments = await database.Appointments
+                    .Where(a => a.room_id.HasValue && 
+                                a.appointment_date >= startOfDay && 
+                                a.appointment_date <= endOfDay)
+                    .Select(a => a.room_id.Value)
+                    .Distinct()
+                    .ToListAsync();
+
+                // Get active rooms that don't have appointments on this date
+                var list = await database.Rooms
+                    .Where(r => r.is_active && !roomsWithAppointments.Contains(r.room_id))
+                    .OrderBy(r => r.room_name)
+                    .ToListAsync();
+
+                string msg = $"Fetched {list.Count} active rooms without appointments on {appointmentDate:yyyy-MM-dd}.";
+                logger.LogInformation(msg);
+                await logRepository.CreateLogAsync("Get Active Rooms By Date", "Success", msg);
+
+                return list.Select(MapingRooms);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error retrieving active rooms by date.");
+                await logRepository.CreateLogAsync("Get Active Rooms By Date", "Error", ex.Message);
+                return Enumerable.Empty<RoomDetailsDto>();
+            }
+        }
         public async Task<IEnumerable<RoomDetailsDto>> GetALlRoomsAsync()
         {
             try

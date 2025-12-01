@@ -5,6 +5,7 @@ using medibook_API.Extensions.IRepositories;
 using medibook_API.Extensions.Services;
 using medibook_API.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Numerics;
 
 namespace medibook_API.Extensions.Repositories
 {
@@ -15,19 +16,22 @@ namespace medibook_API.Extensions.Repositories
         private readonly ILogRepository _logRepository;
         private readonly IUserContextService _userContextService;
         private readonly INotificationService _notificationService;
+        private readonly EmailServices emailServices;
 
         public FeedBackRepository(
             Medibook_Context database,
             ILogger<FeedBackRepository> logger,
             ILogRepository logRepository,
             IUserContextService userContextService,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            EmailServices emailServices)
         {
             _database = database;
             _logger = logger;
             _logRepository = logRepository;
             _userContextService = userContextService;
             _notificationService = notificationService;
+            this.emailServices = emailServices;
         }
 
         public async Task<FeedbackResponseDto> CreateFeedbackAsync(CreateFeedbackDto dto)
@@ -109,6 +113,25 @@ namespace medibook_API.Extensions.Repositories
                 var adminMessage = $"New feedback created. Feedback ID: {feedback.feedback_id}, Patient ID: {dto.PatientId}, Doctor ID: {dto.DoctorId}, Rate: {dto.Rate}/5";
                 await _notificationService.SendNotificationToAdminsAsync(senderId, adminMessage);
 
+                try
+                {
+                    var patient = await _database.Users
+                        .FirstOrDefaultAsync(u => u.user_id == dto.PatientId);
+
+                    await emailServices.SendFeedbackEmailAsync(patient.email,
+                        doctor.Users.email,
+                       $"{patient.first_name} {patient.last_name}",
+                       $"{doctor.Users.first_name} {doctor.Users.last_name}",
+                       appointment.appointment_date,
+                       dto.AppointmentId.ToString(),
+                       dto.Comment,
+                       dto.Rate);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Error sending feedback notification email: {ex.Message}");
+                }
+
                 return new FeedbackResponseDto
                 {
                     FeedbackId = feedback.feedback_id,
@@ -172,6 +195,27 @@ namespace medibook_API.Extensions.Repositories
                 // Send to all admins
                 var adminMessage = $"Doctor reply added to feedback {dto.FeedbackId}. Doctor ID: {feedback.doctor_id}, Patient ID: {feedback.patient_id}";
                 await _notificationService.SendNotificationToAdminsAsync(senderId, adminMessage);
+
+                try
+                {
+                    var patient = await _database.Users
+                         .FirstOrDefaultAsync(u => u.user_id == feedback.patient_id);
+                    var doctor = await _database.Doctors.FirstOrDefaultAsync(u => u.doctor_id == feedback.doctor_id);
+
+                    await emailServices.SendDoctorReplyEmailAsync(patient.email,
+                        doctor.Users.email,
+                       $"{patient.first_name} {patient.last_name}",
+                       $"{doctor.Users.first_name} {doctor.Users.last_name}",
+                       feedback.Appointments.appointment_date,
+                       feedback.appointment_id.ToString(),
+                       dto.DoctorReply);
+
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Error sending doctor reply notification email: {ex.Message}");
+                }
+
 
                 return new FeedbackResponseDto
                 {
@@ -274,6 +318,24 @@ namespace medibook_API.Extensions.Repositories
                     .AsNoTracking()
                     .OrderByDescending(f => f.feedback_date)
                     .ToListAsync();
+
+                var userid = _userContextService.GetCurrentUserId();
+                var role = _userContextService.GetCurrentUserRole();
+                if (role.ToLower() == "user")
+                {
+
+                    feedbacks = feedbacks.Where(u => u.patient_id == userid).ToList();
+                }
+                if (role.ToLower() == "doctor")
+                {
+                    var doctor = await _database.Doctors.FirstOrDefaultAsync(u => u.user_id == userid);
+                    feedbacks = feedbacks.Where(u => u.doctor_id == doctor.doctor_id).ToList();
+                }
+                if (role.ToLower() == "nurse")
+                {
+                    var nurse = await _database.Nurses.FirstOrDefaultAsync(u => u.user_id == userid);
+                    feedbacks = feedbacks.Where(u => u.Appointments.nurse_id == nurse.nurse_id).ToList();
+                }
 
                 return feedbacks.Select(f => MapToFeedbackDetailsDto(f));
             }

@@ -14,19 +14,22 @@ namespace medibook_API.Extensions.Repositories
         private readonly ILogRepository logRepository;
         private readonly INotificationService notificationService;
         private readonly IUserContextService userContextService;
+        private readonly EmailServices emailServices;
 
         public AppointmentRepository(
             Medibook_Context database,
             ILogger<AppointmentRepository> logger,
             ILogRepository logRepository,
             INotificationService notificationService,
-            IUserContextService userContextService)
+            IUserContextService userContextService,
+            EmailServices emailServices)
         {
             this.database = database;
             this.logger = logger;
             this.logRepository = logRepository;
             this.notificationService = notificationService;
             this.userContextService = userContextService;
+            this.emailServices = emailServices;
         }
 
         public async Task<bool> AssignAppointmentAsync(AssignAppoinmentDto dto)
@@ -51,14 +54,42 @@ namespace medibook_API.Extensions.Repositories
                 await logRepository.CreateLogAsync("ASSIGN_APPOINTMENT", "SUCCESS",
                     $"Appointment {dto.appointment_id} assigned to Nurse ID: {dto.nurse_id}, Room ID: {dto.room_id}");
 
+                // Get related user information for emails
+                var patient = await database.Users
+                    .FirstOrDefaultAsync(u => u.user_id == appointment.patient_id);
+                var doctor = await database.Doctors
+                    .Include(d => d.Users)
+                    .FirstOrDefaultAsync(d => d.doctor_id == appointment.doctor_id);
+                var nurse = await database.Nurses
+                    .Include(n => n.Users)
+                    .FirstOrDefaultAsync(n => n.nurse_id == dto.nurse_id);
+
+                // Send email notifications for nurse assignment
+                if (patient != null && doctor != null && doctor.Users != null && nurse != null && nurse.Users != null)
+                {
+                    try
+                    {
+                        await emailServices.SendNurseAssignedEmailAsync(
+                            patientEmail: patient.email,
+                            doctorEmail: doctor.Users.email,
+                            nurseEmail: nurse.Users.email,
+                            patientName: $"{patient.first_name} {patient.last_name}",
+                            doctorName: $"{doctor.Users.first_name} {doctor.Users.last_name}",
+                            nurseName: $"{nurse.Users.first_name} {nurse.Users.last_name}",
+                            appointmentDate: appointment.appointment_date.Date,
+                            appointmentTime: appointment.appointment_date.TimeOfDay,
+                            appointmentId: appointment.appointment_id.ToString()
+                        );
+                    }
+                    catch (Exception emailEx)
+                    {
+                        logger.LogWarning(emailEx, $"Failed to send assignment emails for appointment {dto.appointment_id}");
+                    }
+                }
+
                 // Send notifications
                 var currentUserId = userContextService.GetCurrentUserId();
                 var senderId = currentUserId > 0 ? currentUserId : appointment.doctor_id;
-
-                // Get related user IDs
-                var patient = await database.Users.FirstOrDefaultAsync(u => u.user_id == appointment.patient_id);
-                var doctor = await database.Doctors.FirstOrDefaultAsync(d => d.doctor_id == appointment.doctor_id);
-                var nurse = await database.Nurses.FirstOrDefaultAsync(n => n.nurse_id == dto.nurse_id);
 
                 var appointmentDate = appointment.appointment_date.ToString("yyyy-MM-dd hh:mm tt");
 
@@ -88,7 +119,6 @@ namespace medibook_API.Extensions.Repositories
                 await notificationService.SendNotificationToAdminsAsync(senderId, adminMessage);
 
                 return true;
-
             }
             catch (Exception ex)
             {
@@ -96,9 +126,9 @@ namespace medibook_API.Extensions.Repositories
                 await logRepository.CreateLogAsync("ASSIGN_APPOINTMENT", "ERROR",
                     $"Error assigning appointment {dto.appointment_id}: {ex.Message}");
                 throw;
-
             }
         }
+
 
         public async Task<AppointmentResponseDto> CancelAppointmentAsync(CancelAppointmentDto dto)
         {
@@ -123,13 +153,38 @@ namespace medibook_API.Extensions.Repositories
                 await logRepository.CreateLogAsync("CANCEL_APPOINTMENT", "SUCCESS",
                     $"Appointment {dto.appointment_id} cancelled successfully. Patient ID: {appointment.patient_id}, Doctor ID: {appointment.doctor_id}");
 
+                // Get related user information for emails
+                var patient = await database.Users
+                    .FirstOrDefaultAsync(u => u.user_id == appointment.patient_id);
+                var doctor = await database.Doctors
+                    .Include(d => d.Users)
+                    .FirstOrDefaultAsync(d => d.doctor_id == appointment.doctor_id);
+
+                // Send cancellation emails
+                if (patient != null && doctor != null && doctor.Users != null)
+                {
+                    try
+                    {
+                        await emailServices.SendAppointmentClosedEmailAsync(
+                            patientEmail: patient.email,
+                            doctorEmail: doctor.Users.email,
+                            patientName: $"{patient.first_name} {patient.last_name}",
+                            doctorName: $"{doctor.Users.first_name} {doctor.Users.last_name}",
+                            appointmentDate: appointment.appointment_date.Date,
+                            appointmentId: appointment.appointment_id.ToString(),
+                            notes: "Appointment cancelled by user request."
+                        );
+                    }
+                    catch (Exception emailEx)
+                    {
+                        logger.LogWarning(emailEx, $"Failed to send cancellation emails for appointment {dto.appointment_id}");
+                    }
+                }
+
                 // Send notifications
                 var currentUserId = userContextService.GetCurrentUserId();
                 var senderId = currentUserId > 0 ? currentUserId : appointment.patient_id;
 
-                // Get related user IDs
-                var patient = await database.Users.FirstOrDefaultAsync(u => u.user_id == appointment.patient_id);
-                var doctor = await database.Doctors.FirstOrDefaultAsync(d => d.doctor_id == appointment.doctor_id);
                 var appointmentDate = appointment.appointment_date.ToString("yyyy-MM-dd hh:mm tt");
 
                 // Notify doctor
@@ -158,7 +213,6 @@ namespace medibook_API.Extensions.Repositories
                     message = "Appointment cancelled successfully."
                 };
                 return response;
-
             }
             catch (Exception ex)
             {
@@ -167,10 +221,7 @@ namespace medibook_API.Extensions.Repositories
                     $"Error cancelling appointment {dto.appointment_id}: {ex.Message}");
                 throw;
             }
-
-
         }
-
         public async Task<bool> CloseAppointmentAsync(CloseAppointmentDto dto)
         {
             try
@@ -193,16 +244,61 @@ namespace medibook_API.Extensions.Repositories
                 await logRepository.CreateLogAsync("CLOSE_APPOINTMENT", "SUCCESS",
                     $"Appointment {dto.appointment_id} closed successfully. Patient ID: {appointment.patient_id}, Doctor ID: {appointment.doctor_id}");
 
+                // Get related user information for emails
+                var patient = await database.Users
+                    .FirstOrDefaultAsync(u => u.user_id == appointment.patient_id);
+                var doctor = await database.Doctors
+                    .Include(d => d.Users)
+                    .FirstOrDefaultAsync(d => d.doctor_id == appointment.doctor_id);
+                var nurse = appointment.nurse_id.HasValue
+                    ? await database.Nurses
+                        .Include(n => n.Users)
+                        .FirstOrDefaultAsync(n => n.nurse_id == appointment.nurse_id.Value)
+                    : null;
+
+                // Send completion emails based on whether nurse was involved
+                if (patient != null && doctor != null && doctor.Users != null)
+                {
+                    try
+                    {
+                        if (nurse != null && nurse.Users != null)
+                        {
+                            // Appointment with nurse involved
+                            await emailServices.SendAppointmentClosedWithNurseEmailAsync(
+                                patientEmail: patient.email,
+                                doctorEmail: doctor.Users.email,
+                                nurseEmail: nurse.Users.email,
+                                patientName: $"{patient.first_name} {patient.last_name}",
+                                doctorName: $"{doctor.Users.first_name} {doctor.Users.last_name}",
+                                nurseName: $"{nurse.Users.first_name} {nurse.Users.last_name}",
+                                appointmentDate: appointment.appointment_date.Date,
+                                appointmentId: appointment.appointment_id.ToString(),
+                                notes: dto.notes
+                            );
+                        }
+                        else
+                        {
+                            // Appointment without nurse
+                            await emailServices.SendAppointmentClosedEmailAsync(
+                                patientEmail: patient.email,
+                                doctorEmail: doctor.Users.email,
+                                patientName: $"{patient.first_name} {patient.last_name}",
+                                doctorName: $"{doctor.Users.first_name} {doctor.Users.last_name}",
+                                appointmentDate: appointment.appointment_date.Date,
+                                appointmentId: appointment.appointment_id.ToString(),
+                                notes: dto.notes
+                            );
+                        }
+                    }
+                    catch (Exception emailEx)
+                    {
+                        logger.LogWarning(emailEx, $"Failed to send completion emails for appointment {dto.appointment_id}");
+                    }
+                }
+
                 // Send notifications
                 var currentUserId = userContextService.GetCurrentUserId();
                 var senderId = currentUserId > 0 ? currentUserId : appointment.doctor_id;
-
-                // Get related user IDs
-                var patient = await database.Users.FirstOrDefaultAsync(u => u.user_id == appointment.patient_id);
-                var doctor = await database.Doctors.FirstOrDefaultAsync(d => d.doctor_id == appointment.doctor_id);
-                var nurse = appointment.nurse_id.HasValue
-                    ? await database.Nurses.FirstOrDefaultAsync(n => n.nurse_id == appointment.nurse_id.Value)
-                    : null;
 
                 var appointmentDate = appointment.appointment_date.ToString("yyyy-MM-dd hh:mm tt");
 
@@ -232,7 +328,6 @@ namespace medibook_API.Extensions.Repositories
                 await notificationService.SendNotificationToAdminsAsync(senderId, adminMessage);
 
                 return true;
-
             }
             catch (Exception ex)
             {
@@ -241,8 +336,6 @@ namespace medibook_API.Extensions.Repositories
                     $"Error closing appointment {dto.appointment_id}: {ex.Message}");
                 throw;
             }
-
-
         }
 
         public async Task<AppointmentResponseDto> CreateAppintmentAsync(CreateAppoinmentDto dto)
@@ -267,8 +360,8 @@ namespace medibook_API.Extensions.Repositories
                 }
 
                 // Verify patient exists
-                var patientExists = await database.Users.AnyAsync(u => u.user_id == dto.patient_id);
-                if (!patientExists)
+                var patient = await database.Users.FirstOrDefaultAsync(u => u.user_id == dto.patient_id);
+                if (patient == null)
                 {
                     logger.LogWarning($"Patient with ID {dto.patient_id} does not exist.");
                     await logRepository.CreateLogAsync("CREATE_APPOINTMENT", "ERROR",
@@ -284,8 +377,10 @@ namespace medibook_API.Extensions.Repositories
                 }
 
                 // Verify doctor exists
-                var doctorExists = await database.Doctors.AnyAsync(d => d.doctor_id == dto.doctor_id);
-                if (!doctorExists)
+                var doctor = await database.Doctors
+                    .Include(d => d.Users)
+                    .FirstOrDefaultAsync(d => d.doctor_id == dto.doctor_id);
+                if (doctor == null)
                 {
                     logger.LogWarning($"Doctor with ID {dto.doctor_id} does not exist.");
                     await logRepository.CreateLogAsync("CREATE_APPOINTMENT", "ERROR",
@@ -306,7 +401,7 @@ namespace medibook_API.Extensions.Repositories
                     doctor_id = dto.doctor_id,
                     appointment_date = dto.appointment_date,
                     status = "Scheduled",
-                    create_date = DateTime.UtcNow
+                    create_date = DateTime.Now
                 };
                 database.Appointments.Add(appointment);
                 await database.SaveChangesAsync();
@@ -317,6 +412,29 @@ namespace medibook_API.Extensions.Repositories
                     ? date.AddMinutes(-remainder)
                     : date.AddMinutes(15 - remainder);
 
+                // Send appointment confirmation emails
+                if (patient != null && doctor.Users != null)
+                {
+                    try
+                    {
+                        await emailServices.SendAppointmentBookedEmailAsync(
+                            patientEmail: patient.email,
+                            doctorEmail: doctor.Users.email,
+                            patientName: $"{patient.first_name} {patient.last_name}",
+                            doctorName: $"{doctor.Users.first_name} {doctor.Users.last_name}",
+                            appointmentDate: roundedDate.Date,
+                            appointmentTime: roundedDate.TimeOfDay,
+                            appointmentId: appointment.appointment_id.ToString(),
+                            location: "Main Hospital"
+                        );
+                    }
+                    catch (Exception emailEx)
+                    {
+                        logger.LogWarning(emailEx, $"Failed to send appointment confirmation emails for appointment {appointment.appointment_id}");
+                        // Don't fail the appointment creation if email fails
+                    }
+                }
+
                 // Log successful appointment creation
                 await logRepository.CreateLogAsync("CREATE_APPOINTMENT", "SUCCESS",
                     $"Appointment created successfully. Appointment ID: {appointment.appointment_id}, Patient ID: {dto.patient_id}, Doctor ID: {dto.doctor_id}, Date: {roundedDate}");
@@ -325,13 +443,9 @@ namespace medibook_API.Extensions.Repositories
                 var currentUserId = userContextService.GetCurrentUserId();
                 var senderId = currentUserId > 0 ? currentUserId : dto.patient_id;
 
-                // Get doctor user ID
-                var doctor = await database.Doctors
-                    .FirstOrDefaultAsync(d => d.doctor_id == dto.doctor_id);
-
                 if (doctor != null)
                 {
-                    var doctorMessage = $"New appointment scheduled for {roundedDate:yyyy-MM-dd hh:mm tt}. Patient: {senderId}";
+                    var doctorMessage = $"New appointment scheduled for {roundedDate:yyyy-MM-dd hh:mm tt}. Patient: {patient.first_name} {patient.last_name}";
                     await notificationService.SendNotificationToDoctorAsync(senderId, doctor.user_id, doctorMessage);
                 }
 
@@ -357,7 +471,6 @@ namespace medibook_API.Extensions.Repositories
                 throw;
             }
         }
-
         public async Task<IEnumerable<AppointmentDetailsDto>> GetAllAppointmentAsync()
         {
             try
@@ -371,6 +484,22 @@ namespace medibook_API.Extensions.Repositories
                         .ThenInclude(n => n.Users)
                     .Include(a => a.Rooms)
                     .ToListAsync();
+                var userid = userContextService.GetCurrentUserId();
+                var currentrole = userContextService.GetCurrentUserRole();
+                if (currentrole.ToLower() == "user")
+                {
+                    appointments = appointments.Where(u => u.patient_id == userid).ToList();
+                }
+                if (currentrole.ToLower() == "doctor")
+                {
+                    var doctor = await database.Doctors.FirstOrDefaultAsync(u => u.user_id == userid);
+                    appointments = appointments.Where(u => u.doctor_id == doctor.doctor_id).ToList();
+                }
+                if (currentrole.ToLower() == "nurse")
+                {
+                    var nurse = await database.Nurses.FirstOrDefaultAsync(u => u.user_id == userid);
+                    appointments = appointments.Where(u => u.nurse_id == nurse.nurse_id).ToList();
+                }
 
                 logger.LogInformation($"Found {appointments.Count} appointments in database");
 

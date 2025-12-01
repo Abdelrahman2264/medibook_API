@@ -48,14 +48,25 @@ namespace medibook_API.Controllers
         }
 
         // GET: /api/Rooms/active
-        [HttpGet("active")] // route: /api/Rooms/active
+        [HttpGet("active")] // route: /api/Rooms/active?appointmentDate=2024-01-15T10:00:00
         [ProducesResponseType(typeof(IEnumerable<RoomDetailsDto>), (int)HttpStatusCode.OK)]
         [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
-        public async Task<IActionResult> GetAllActiveRooms()
+        [ProducesResponseType((int)HttpStatusCode.BadRequest)]
+        public async Task<IActionResult> GetAllActiveRooms([FromQuery] DateTime? appointmentDate)
         {
             try
             {
-                var rooms = await roomRepository.GetALlActiveAsync();
+                IEnumerable<RoomDetailsDto> rooms;
+                
+                if (appointmentDate.HasValue)
+                {
+                    rooms = await roomRepository.GetALlActiveAsync(appointmentDate.Value);
+                }
+                else
+                {
+                    rooms = await roomRepository.GetALlActiveAsync();
+                }
+                
                 return Ok(rooms);
             }
             catch (Exception ex)

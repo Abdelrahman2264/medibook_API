@@ -49,11 +49,22 @@ namespace medibook_API.Controllers
         [HttpGet("active")]
         [ProducesResponseType(typeof(IEnumerable<NurseDetailsDto>), (int)HttpStatusCode.OK)]
         [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
-        public async Task<IActionResult> GetAllActiveNurses()
+        [ProducesResponseType((int)HttpStatusCode.BadRequest)]
+        public async Task<IActionResult> GetAllActiveNurses([FromQuery] DateTime? appointmentDate)
         {
             try
             {
-                var nurses = await nurseRepository.GetAllActiveNursesAsync();
+                IEnumerable<NurseDetailsDto> nurses;
+                
+                if (appointmentDate.HasValue)
+                {
+                    nurses = await nurseRepository.GetAllActiveNursesAsync(appointmentDate.Value);
+                }
+                else
+                {
+                    nurses = await nurseRepository.GetAllActiveNursesAsync();
+                }
+                
                 return Ok(nurses);
             }
             catch (Exception ex)

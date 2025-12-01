@@ -14,6 +14,7 @@ namespace medibook_API.Extensions.IRepositories
         public Task<bool> IsRoomExist(string name, string type, int id);
         public Task<IEnumerable<RoomDetailsDto>> GetALlRoomsAsync();
         public Task<IEnumerable<RoomDetailsDto>> GetALlActiveAsync();
+        public Task<IEnumerable<RoomDetailsDto>> GetALlActiveAsync(DateTime appointmentDate);
 
 
     }

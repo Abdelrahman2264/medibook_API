@@ -9,7 +9,7 @@ namespace medibook_API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")] // API prefix
-    [Authorize]
+    [Authorize(Roles = "Admin,Doctor,Nurse")]
     public class RolesController : Controller
     {
         private readonly ILogger<RolesController> logger;
@@ -69,7 +69,7 @@ namespace medibook_API.Controllers
         [HttpPost("create")]  // route: /api/Roles/Create
         [ProducesResponseType(typeof(Roles), (int)HttpStatusCode.Created)]
         [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
-        public async Task<IActionResult> CreateRoom([FromBody] Roles role)
+        public async Task<IActionResult> CreateRole([FromBody] Roles role)
         {
             try
             {

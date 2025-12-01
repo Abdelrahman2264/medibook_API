@@ -10,6 +10,7 @@ namespace medibook_API.Extensions.IRepositories
         public Task<NurseDetailsDto> GetNurseByUserIdAsync(int id);
         public Task<IEnumerable<NurseDetailsDto>> GetAllNursesAsync();
         public Task<IEnumerable<NurseDetailsDto>> GetAllActiveNursesAsync();
+        public Task<IEnumerable<NurseDetailsDto>> GetAllActiveNursesAsync(DateTime appointmentDate);
 
     }
 }
