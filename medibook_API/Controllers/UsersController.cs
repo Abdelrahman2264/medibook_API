@@ -1,4 +1,4 @@
-﻿using medibook_API.Extensions.DTOs;
+using medibook_API.Extensions.DTOs;
 using medibook_API.Extensions.Helpers;
 using medibook_API.Extensions.IRepositories;
 using medibook_API.Extensions.Services;
@@ -320,6 +320,58 @@ namespace medibook_API.Controllers
             {
                 logger.LogError(ex, "Error occurred while retrieving current user.");
                 return StatusCode(500, "Internal server error");
+            }
+        }
+
+        // POST: /api/Users/check-email
+        [HttpPost("check-email")]
+        [ProducesResponseType(typeof(object), (int)HttpStatusCode.OK)]
+        [ProducesResponseType((int)HttpStatusCode.BadRequest)]
+        [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> CheckEmail([FromBody] CheckEmailDto dto)
+        {
+            try
+            {
+                if (dto == null || string.IsNullOrEmpty(dto.Email))
+                {
+                    return BadRequest(new { exists = false, message = "Email is required" });
+                }
+
+                var userId = dto.UserId ?? -1;
+                var exists = await userRepository.IsEmailExistAsync(dto.Email, userId);
+
+                return Ok(new { exists = exists, message = exists ? "Email already exists" : "Email is available" });
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error occurred while checking email.");
+                return StatusCode(500, new { exists = false, message = "Internal server error" });
+            }
+        }
+
+        // POST: /api/Users/check-phone
+        [HttpPost("check-phone")]
+        [ProducesResponseType(typeof(object), (int)HttpStatusCode.OK)]
+        [ProducesResponseType((int)HttpStatusCode.BadRequest)]
+        [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> CheckPhone([FromBody] CheckPhoneDto dto)
+        {
+            try
+            {
+                if (dto == null || string.IsNullOrEmpty(dto.Phone))
+                {
+                    return BadRequest(new { exists = false, message = "Phone number is required" });
+                }
+
+                var userId = dto.UserId ?? -1;
+                var exists = await userRepository.IsPhoneExistAsync(dto.Phone, userId);
+
+                return Ok(new { exists = exists, message = exists ? "Phone number already exists" : "Phone number is available" });
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error occurred while checking phone number.");
+                return StatusCode(500, new { exists = false, message = "Internal server error" });
             }
         }
     }

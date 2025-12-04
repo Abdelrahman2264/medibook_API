@@ -1,4 +1,4 @@
-﻿using medibook_API.Extensions.DTOs;
+using medibook_API.Extensions.DTOs;
 using medibook_API.Extensions.Helpers;
 using medibook_API.Extensions.IRepositories;
 using medibook_API.Extensions.Services;
@@ -15,15 +15,18 @@ namespace medibook_API.Controllers
     {
         private readonly ILogger<NursesController> logger;
         private readonly INurseRepository nurseRepository;
+        private readonly IUserRepository userRepository;
         private readonly ISignalRService signalRService;
 
         public NursesController(
             ILogger<NursesController> logger, 
             INurseRepository nurseRepository,
+            IUserRepository userRepository,
             ISignalRService signalRService)
         {
             this.logger = logger;
             this.nurseRepository = nurseRepository;
+            this.userRepository = userRepository;
             this.signalRService = signalRService;
         }
 
@@ -132,6 +135,22 @@ namespace medibook_API.Controllers
         {
             try
             {
+                // Check for duplicate email
+                var existingEmailUser = await userRepository.IsEmailExistAsync(dto.Email, -1);
+                if (existingEmailUser)
+                {
+                    logger.LogWarning("CreateNurse: Email {Email} already exists", dto.Email);
+                    return BadRequest("Email already exists.");
+                }
+
+                // Check for duplicate phone
+                var existingPhoneUser = await userRepository.IsPhoneExistAsync(dto.MobilePhone, -1);
+                if (existingPhoneUser)
+                {
+                    logger.LogWarning("CreateNurse: Mobile phone {Phone} already exists", dto.MobilePhone);
+                    return BadRequest("Mobile phone already exists.");
+                }
+
                 var createdNurse = await nurseRepository.CreateNurseAsync(dto);
 
                 if (createdNurse.UserId <= 0)

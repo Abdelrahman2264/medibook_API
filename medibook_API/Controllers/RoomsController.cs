@@ -1,4 +1,4 @@
-﻿using medibook_API.Extensions.DTOs;
+using medibook_API.Extensions.DTOs;
 using medibook_API.Extensions.Helpers;
 using medibook_API.Extensions.IRepositories;
 using medibook_API.Extensions.Services;
@@ -263,6 +263,32 @@ namespace medibook_API.Controllers
             {
                 logger.LogError(ex, "DeleteRoom: An error occurred while deleting the room.");
                 return StatusCode(500, "Internal server error");
+            }
+        }
+
+        // POST: /api/Rooms/check-room
+        [HttpPost("check-room")]
+        [ProducesResponseType(typeof(object), (int)HttpStatusCode.OK)]
+        [ProducesResponseType((int)HttpStatusCode.BadRequest)]
+        [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
+        public async Task<IActionResult> CheckRoom([FromBody] CheckRoomDto dto)
+        {
+            try
+            {
+                if (dto == null || string.IsNullOrEmpty(dto.RoomName) || string.IsNullOrEmpty(dto.RoomType))
+                {
+                    return BadRequest(new { exists = false, message = "Room name and room type are required" });
+                }
+
+                var roomId = dto.RoomId ?? 0;
+                var exists = await roomRepository.IsRoomExist(dto.RoomName, dto.RoomType, roomId);
+
+                return Ok(new { exists = exists, message = exists ? $"Room with name '{dto.RoomName}' and type '{dto.RoomType}' already exists" : "Room name and type combination is available" });
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error occurred while checking room.");
+                return StatusCode(500, new { exists = false, message = "Internal server error" });
             }
         }
     }
