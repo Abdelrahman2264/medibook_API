@@ -17,10 +17,13 @@ namespace medibook_API.Migrations
                 {
                     report_id = table.Column<int>(type: "INT", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    report_pdf = table.Column<byte[]>(type: "varbinary(max)", nullable: false),
-                    ReportDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    report_type = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false)
+                    report_file = table.Column<byte[]>(type: "VARBINARY(MAX)", nullable: false),
+                    file_format = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: false),
+                    report_date = table.Column<DateTime>(type: "datetime2(0)", nullable: false),
+                    report_type = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: false),
+                    period_type = table.Column<string>(type: "varchar(200)", maxLength: 200, nullable: true),
+                    description = table.Column<string>(type: "varchar(500)", maxLength: 500, nullable: false),
+                    file_name = table.Column<string>(type: "varchar(255)", maxLength: 255, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -69,7 +72,7 @@ namespace medibook_API.Migrations
                     mitrial_status = table.Column<string>(type: "varchar(50)", unicode: false, maxLength: 50, nullable: false),
                     is_active = table.Column<bool>(type: "bit", nullable: false),
                     email_verified = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    email = table.Column<string>(type: "varchar(100)", unicode: false, maxLength: 100, nullable: false),
+                    email = table.Column<string>(type: "varchar(150)", unicode: false, maxLength: 150, nullable: false),
                     mobile_phone = table.Column<string>(type: "varchar(50)", unicode: false, maxLength: 50, nullable: false),
                     password_hash = table.Column<string>(type: "varchar(max)", unicode: false, nullable: false),
                     role_id = table.Column<int>(type: "INT", nullable: false),
@@ -79,10 +82,11 @@ namespace medibook_API.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("USERUID_PK", x => x.user_id);
-                    table.CheckConstraint("CK_Gender_Values", "gender IN ('Male', 'Female')");
+                    table.PrimaryKey("USERID_PK", x => x.user_id);
+                    table.CheckConstraint("DATEOFBIRTH_CK", "[date_of_birth] <= GETDATE()");
+                    table.CheckConstraint("GENDER_CK", "gender IN ('Male', 'Female')");
                     table.ForeignKey(
-                        name: "FK_User_Role",
+                        name: "ROLEID_FK",
                         column: x => x.role_id,
                         principalTable: "Roles",
                         principalColumn: "role_id");
@@ -95,7 +99,7 @@ namespace medibook_API.Migrations
                     doctor_id = table.Column<int>(type: "INT", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     bio = table.Column<string>(type: "varchar(500)", unicode: false, maxLength: 500, nullable: false),
-                    specialization = table.Column<string>(type: "varchar(150)", unicode: false, maxLength: 150, nullable: false),
+                    specialization = table.Column<string>(type: "varchar(500)", unicode: false, maxLength: 500, nullable: false),
                     type = table.Column<string>(type: "varchar(100)", unicode: false, maxLength: 100, nullable: false),
                     experience_years = table.Column<int>(type: "int", nullable: false),
                     user_id = table.Column<int>(type: "INT", nullable: false)
@@ -103,12 +107,13 @@ namespace medibook_API.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("DOCTORID_PK", x => x.doctor_id);
-                    table.CheckConstraint("CK_ExperienceYears_NonNegative", "experience_years >= 0");
+                    table.CheckConstraint("YEARSOFEXPERIENCE_CK", "experience_years >= 0 AND experience_years <= 100");
                     table.ForeignKey(
-                        name: "FK_User_Doctor",
+                        name: "DOCTORUSERID_FK",
                         column: x => x.user_id,
                         principalTable: "Users",
-                        principalColumn: "user_id");
+                        principalColumn: "user_id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -117,7 +122,7 @@ namespace medibook_API.Migrations
                 {
                     log_id = table.Column<int>(type: "INT", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    action = table.Column<string>(type: "varchar(50)", unicode: false, maxLength: 50, nullable: false),
+                    action_type = table.Column<string>(type: "varchar(50)", unicode: false, maxLength: 50, nullable: false),
                     log_type = table.Column<string>(type: "varchar(50)", unicode: false, maxLength: 50, nullable: false),
                     log_date = table.Column<DateTime>(type: "datetime2(0)", nullable: false, defaultValueSql: "(sysdatetime())"),
                     description = table.Column<string>(type: "varchar(max)", unicode: false, maxLength: 2147483647, nullable: false),
@@ -144,14 +149,21 @@ namespace medibook_API.Migrations
                     is_read = table.Column<bool>(type: "bit", nullable: false),
                     create_date = table.Column<DateTime>(type: "datetime2(0)", nullable: false, defaultValueSql: "(sysdatetime())"),
                     read_date = table.Column<DateTime>(type: "datetime2(0)", nullable: false),
-                    user_id = table.Column<int>(type: "INT", nullable: false)
+                    sender_user_id = table.Column<int>(type: "INT", nullable: false),
+                    reciever_user_id = table.Column<int>(type: "INT", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("NOTIFICATIONID_PK", x => x.notification_id);
+                    table.CheckConstraint("READSENDDATE_CK", "read_date >= create_date");
                     table.ForeignKey(
-                        name: "FK_User_Notification",
-                        column: x => x.user_id,
+                        name: "FK_User_RecieveNotification",
+                        column: x => x.reciever_user_id,
+                        principalTable: "Users",
+                        principalColumn: "user_id");
+                    table.ForeignKey(
+                        name: "FK_User_SenderNotification",
+                        column: x => x.sender_user_id,
                         principalTable: "Users",
                         principalColumn: "user_id");
                 });
@@ -169,10 +181,11 @@ namespace medibook_API.Migrations
                 {
                     table.PrimaryKey("NURSEID_PK", x => x.nurse_id);
                     table.ForeignKey(
-                        name: "FK_User_Nurse",
+                        name: "NURSEUSERID_FK",
                         column: x => x.user_id,
                         principalTable: "Users",
-                        principalColumn: "user_id");
+                        principalColumn: "user_id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -183,17 +196,18 @@ namespace medibook_API.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     status = table.Column<string>(type: "varchar(50)", unicode: false, maxLength: 50, nullable: false),
                     appointment_date = table.Column<DateTime>(type: "datetime2(0)", nullable: false),
-                    notes = table.Column<string>(type: "varchar(500)", unicode: false, maxLength: 500, nullable: false),
-                    medicine = table.Column<string>(type: "varchar(500)", unicode: false, maxLength: 500, nullable: false),
+                    notes = table.Column<string>(type: "varchar(500)", unicode: false, maxLength: 500, nullable: true),
+                    medicine = table.Column<string>(type: "varchar(500)", unicode: false, maxLength: 500, nullable: true),
                     create_date = table.Column<DateTime>(type: "datetime2(0)", nullable: false, defaultValueSql: "(sysdatetime())"),
                     patient_id = table.Column<int>(type: "INT", nullable: false),
                     doctor_id = table.Column<int>(type: "INT", nullable: false),
-                    nurse_id = table.Column<int>(type: "INT", nullable: false),
-                    room_id = table.Column<int>(type: "INT", nullable: false)
+                    nurse_id = table.Column<int>(type: "INT", nullable: true),
+                    room_id = table.Column<int>(type: "INT", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("APPOINTMENTID_PK", x => x.appointment_id);
+                    table.CheckConstraint("APPOINTMENTDATE_CK", "appointment_date >= GETDATE()");
                     table.ForeignKey(
                         name: "FK_Doctor_Appointment",
                         column: x => x.doctor_id,
@@ -224,9 +238,9 @@ namespace medibook_API.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     comment = table.Column<string>(type: "varchar(500)", unicode: false, maxLength: 500, nullable: false),
                     rate = table.Column<int>(type: "int", nullable: false),
-                    create_date = table.Column<DateTime>(type: "datetime2(0)", nullable: false, defaultValueSql: "(sysdatetime())"),
-                    doctor_reply = table.Column<string>(type: "varchar(500)", unicode: false, maxLength: 500, nullable: false),
-                    appointment_date = table.Column<DateTime>(type: "datetime2(0)", nullable: false),
+                    feedback_date = table.Column<DateTime>(type: "datetime2(0)", nullable: false, defaultValueSql: "(sysdatetime())"),
+                    doctor_reply = table.Column<string>(type: "varchar(500)", unicode: false, maxLength: 500, nullable: true),
+                    reply_date = table.Column<DateTime>(type: "datetime2(0)", nullable: true),
                     is_favourite = table.Column<bool>(type: "bit", nullable: false),
                     patient_id = table.Column<int>(type: "INT", nullable: false),
                     doctor_id = table.Column<int>(type: "INT", nullable: false),
@@ -236,6 +250,7 @@ namespace medibook_API.Migrations
                 {
                     table.PrimaryKey("FEEDBACKID_PK", x => x.feedback_id);
                     table.CheckConstraint("CK_Rate_Range", "rate >= 1 AND rate <= 5");
+                    table.CheckConstraint("reply_date_CK", "reply_date >= feedback_date");
                     table.ForeignKey(
                         name: "FK_Appointment_FeedBack",
                         column: x => x.appointment_id,
@@ -274,12 +289,13 @@ namespace medibook_API.Migrations
                 column: "room_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Doctors_user_id",
+                name: "DOCTORUSERID_UQ",
                 table: "Doctors",
-                column: "user_id");
+                column: "user_id",
+                unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_FeedBacks_appointment_id",
+                name: "APPOINTMENTID_UK",
                 table: "FeedBacks",
                 column: "appointment_id",
                 unique: true);
@@ -300,19 +316,37 @@ namespace medibook_API.Migrations
                 column: "user_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Notifications_user_id",
+                name: "IX_Notifications_reciever_user_id",
                 table: "Notifications",
-                column: "user_id");
+                column: "reciever_user_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Nurses_user_id",
+                name: "IX_Notifications_sender_user_id",
+                table: "Notifications",
+                column: "sender_user_id");
+
+            migrationBuilder.CreateIndex(
+                name: "NURSEUSERID_UQ",
                 table: "Nurses",
-                column: "user_id");
+                column: "user_id",
+                unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "ROOMNAME_UQ",
+                name: "ROLENAME_UQ",
+                table: "Roles",
+                column: "role_name",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "UQ_ROOM_NAME_TYPE",
                 table: "Rooms",
-                column: "room_name",
+                columns: new[] { "room_name", "room_type" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "EMAIL_UQ",
+                table: "Users",
+                column: "email",
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -321,13 +355,7 @@ namespace medibook_API.Migrations
                 column: "role_id");
 
             migrationBuilder.CreateIndex(
-                name: "USEREMAIL_UQ",
-                table: "Users",
-                column: "email",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "USERPHONE_UQ",
+                name: "MOBILEPHONE_UQ",
                 table: "Users",
                 column: "mobile_phone",
                 unique: true);

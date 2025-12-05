@@ -43,7 +43,7 @@ namespace medibook_API.Extensions.Services
                 return "User";
 
             // Check if user is a doctor
-            var isDoctor = user.Doctors != null && user.Doctors.Any();
+            var isDoctor = user.Doctors != null ;
 
             if (!isDoctor)
             {

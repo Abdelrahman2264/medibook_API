@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -35,8 +35,8 @@ namespace medibook_API.Models
         public DateTime date_of_birth { get; set; }
 
 
-        public ICollection<Nurses> Nurses { get; set; }
-        public ICollection<Doctors> Doctors { get; set; }
+        public Nurses Nurses { get; set; }
+        public Doctors Doctors { get; set; }
         public ICollection<Logs> Logs { get; set; }
         public ICollection<Notifications> SendNotifications { get; set; }   
         public ICollection<Notifications> RecieveNotifications { get; set; }   

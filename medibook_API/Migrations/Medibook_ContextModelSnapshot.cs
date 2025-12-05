@@ -82,7 +82,10 @@ namespace medibook_API.Migrations
 
                     b.HasIndex("room_id");
 
-                    b.ToTable("Appointments");
+                    b.ToTable("Appointments", t =>
+                        {
+                            t.HasCheckConstraint("APPOINTMENTDATE_CK", "appointment_date >= GETDATE()");
+                        });
                 });
 
             modelBuilder.Entity("medibook_API.Models.Doctors", b =>
@@ -113,9 +116,9 @@ namespace medibook_API.Migrations
 
                     b.Property<string>("specialization")
                         .IsRequired()
-                        .HasMaxLength(150)
+                        .HasMaxLength(500)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(150)")
+                        .HasColumnType("varchar(500)")
                         .HasColumnName("specialization");
 
                     b.Property<int>("user_id")
@@ -124,11 +127,12 @@ namespace medibook_API.Migrations
                     b.HasKey("doctor_id")
                         .HasName("DOCTORID_PK");
 
-                    b.HasIndex("user_id");
+                    b.HasIndex(new[] { "user_id" }, "DOCTORUSERID_UQ")
+                        .IsUnique();
 
                     b.ToTable("Doctors", t =>
                         {
-                            t.HasCheckConstraint("CK_ExperienceYears_NonNegative", "experience_years >= 0");
+                            t.HasCheckConstraint("YEARSOFEXPERIENCE_CK", "experience_years >= 0 AND experience_years <= 100");
                         });
                 });
 
@@ -183,16 +187,18 @@ namespace medibook_API.Migrations
                     b.HasKey("feedback_id")
                         .HasName("FEEDBACKID_PK");
 
-                    b.HasIndex("appointment_id")
-                        .IsUnique();
-
                     b.HasIndex("doctor_id");
 
                     b.HasIndex("patient_id");
 
+                    b.HasIndex(new[] { "appointment_id" }, "APPOINTMENTID_UK")
+                        .IsUnique();
+
                     b.ToTable("FeedBacks", t =>
                         {
                             t.HasCheckConstraint("CK_Rate_Range", "rate >= 1 AND rate <= 5");
+
+                            t.HasCheckConstraint("reply_date_CK", "reply_date >= feedback_date");
                         });
                 });
 
@@ -216,7 +222,7 @@ namespace medibook_API.Migrations
                         .HasMaxLength(50)
                         .IsUnicode(false)
                         .HasColumnType("varchar(50)")
-                        .HasColumnName("action");
+                        .HasColumnName("action_type");
 
                     b.Property<DateTime>("log_date")
                         .ValueGeneratedOnAdd()
@@ -284,7 +290,10 @@ namespace medibook_API.Migrations
 
                     b.HasIndex("sender_user_id");
 
-                    b.ToTable("Notifications");
+                    b.ToTable("Notifications", t =>
+                        {
+                            t.HasCheckConstraint("READSENDDATE_CK", "read_date >= create_date");
+                        });
                 });
 
             modelBuilder.Entity("medibook_API.Models.Nurses", b =>
@@ -308,7 +317,8 @@ namespace medibook_API.Migrations
                     b.HasKey("nurse_id")
                         .HasName("NURSEID_PK");
 
-                    b.HasIndex("user_id");
+                    b.HasIndex(new[] { "user_id" }, "NURSEUSERID_UQ")
+                        .IsUnique();
 
                     b.ToTable("Nurses");
                 });
@@ -323,8 +333,8 @@ namespace medibook_API.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("report_id"));
 
                     b.Property<DateTime>("ReportDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("ReportDate");
+                        .HasColumnType("datetime2(0)")
+                        .HasColumnName("report_date");
 
                     b.Property<string>("description")
                         .IsRequired()
@@ -350,7 +360,8 @@ namespace medibook_API.Migrations
                         .HasColumnName("period_type");
 
                     b.Property<byte[]>("report_file")
-                        .HasColumnType("varbinary(max)")
+                        .IsRequired()
+                        .HasColumnType("VARBINARY(MAX)")
                         .HasColumnName("report_file");
 
                     b.Property<string>("report_type")
@@ -387,6 +398,9 @@ namespace medibook_API.Migrations
 
                     b.HasKey("role_id")
                         .HasName("ROLEID_PK");
+
+                    b.HasIndex(new[] { "role_name" }, "ROLENAME_UQ")
+                        .IsUnique();
 
                     b.ToTable("Roles");
                 });
@@ -426,7 +440,7 @@ namespace medibook_API.Migrations
                     b.HasKey("room_id")
                         .HasName("ROOMID_PK");
 
-                    b.HasIndex(new[] { "room_name" }, "ROOMNAME_UQ")
+                    b.HasIndex(new[] { "room_name", "room_type" }, "UQ_ROOM_NAME_TYPE")
                         .IsUnique();
 
                     b.ToTable("Rooms");
@@ -452,9 +466,9 @@ namespace medibook_API.Migrations
 
                     b.Property<string>("email")
                         .IsRequired()
-                        .HasMaxLength(100)
+                        .HasMaxLength(150)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(100)")
+                        .HasColumnType("varchar(150)")
                         .HasColumnName("email")
                         .HasAnnotation("RegularExpression", "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
@@ -516,19 +530,21 @@ namespace medibook_API.Migrations
                         .HasColumnType("INT");
 
                     b.HasKey("user_id")
-                        .HasName("USERUID_PK");
+                        .HasName("USERID_PK");
 
                     b.HasIndex("role_id");
 
-                    b.HasIndex(new[] { "email" }, "USEREMAIL_UQ")
+                    b.HasIndex(new[] { "email" }, "EMAIL_UQ")
                         .IsUnique();
 
-                    b.HasIndex(new[] { "mobile_phone" }, "USERPHONE_UQ")
+                    b.HasIndex(new[] { "mobile_phone" }, "MOBILEPHONE_UQ")
                         .IsUnique();
 
                     b.ToTable("Users", t =>
                         {
-                            t.HasCheckConstraint("CK_Gender_Values", "gender IN ('Male', 'Female')");
+                            t.HasCheckConstraint("DATEOFBIRTH_CK", "[date_of_birth] <= GETDATE()");
+
+                            t.HasCheckConstraint("GENDER_CK", "gender IN ('Male', 'Female')");
                         });
                 });
 
@@ -572,11 +588,11 @@ namespace medibook_API.Migrations
             modelBuilder.Entity("medibook_API.Models.Doctors", b =>
                 {
                     b.HasOne("medibook_API.Models.Users", "Users")
-                        .WithMany("Doctors")
-                        .HasForeignKey("user_id")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .WithOne("Doctors")
+                        .HasForeignKey("medibook_API.Models.Doctors", "user_id")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("FK_User_Doctor");
+                        .HasConstraintName("DOCTORUSERID_FK");
 
                     b.Navigation("Users");
                 });
@@ -646,11 +662,11 @@ namespace medibook_API.Migrations
             modelBuilder.Entity("medibook_API.Models.Nurses", b =>
                 {
                     b.HasOne("medibook_API.Models.Users", "Users")
-                        .WithMany("Nurses")
-                        .HasForeignKey("user_id")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .WithOne("Nurses")
+                        .HasForeignKey("medibook_API.Models.Nurses", "user_id")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("FK_User_Nurse");
+                        .HasConstraintName("NURSEUSERID_FK");
 
                     b.Navigation("Users");
                 });
@@ -662,7 +678,7 @@ namespace medibook_API.Migrations
                         .HasForeignKey("role_id")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
-                        .HasConstraintName("FK_User_Role");
+                        .HasConstraintName("ROLEID_FK");
 
                     b.Navigation("Role");
                 });
@@ -699,13 +715,15 @@ namespace medibook_API.Migrations
                 {
                     b.Navigation("Appointments");
 
-                    b.Navigation("Doctors");
+                    b.Navigation("Doctors")
+                        .IsRequired();
 
                     b.Navigation("FeedBacks");
 
                     b.Navigation("Logs");
 
-                    b.Navigation("Nurses");
+                    b.Navigation("Nurses")
+                        .IsRequired();
 
                     b.Navigation("RecieveNotifications");
 

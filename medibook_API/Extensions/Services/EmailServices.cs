@@ -1,4 +1,4 @@
-﻿using medibook_API.Extensions.DTOs;
+using medibook_API.Extensions.DTOs;
 using Microsoft.Extensions.Options;
 using System.Net;
 using System.Net.Mail;
@@ -793,6 +793,52 @@ namespace medibook_API.Extensions.Services
 
             string body = GetEmailTemplate(header, salutation, mainContent);
             return await SendEmailAsync(email, "Feedback Response Sent - MediBook", body);
+        }
+
+        // Send email when contact us form is submitted
+        public async Task<bool> SendContactUsEmailAsync(
+            string teamEmail,
+            string senderName,
+            string senderEmail,
+            string? senderPhone,
+            string subject,
+            string message)
+        {
+            if (string.IsNullOrEmpty(teamEmail))
+            {
+                _logger.LogWarning("Team email is null or empty");
+                return false;
+            }
+
+            try
+            {
+                string header = "New Contact Us Message";
+                string salutation = "Dear MediBook Team,";
+                string mainContent = $@"
+        <p>You have received a new message from the contact us form.</p>
+        
+        <div class='appointment-details'>
+            <p><strong>From:</strong> {senderName}</p>
+            <p><strong>Email:</strong> {senderEmail}</p>
+            {(string.IsNullOrEmpty(senderPhone) ? "" : $"<p><strong>Phone:</strong> {senderPhone}</p>")}
+            <p><strong>Subject:</strong> {subject}</p>
+        </div>
+
+        <div class='appointment-details'>
+            <p><strong>Message:</strong></p>
+            <p>{message.Replace("\n", "<br>")}</p>
+        </div>
+
+        <p>Please respond to this inquiry at your earliest convenience.</p>";
+
+                string body = GetEmailTemplate(header, salutation, mainContent);
+                return await SendEmailAsync(teamEmail, $"Contact Us: {subject} - MediBook", body);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send contact us email");
+                return false;
+            }
         }
 
     }

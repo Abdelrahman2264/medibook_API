@@ -1,4 +1,4 @@
-﻿namespace medibook_API.Models
+namespace medibook_API.Models
 {
     using System;
     using System.ComponentModel;
