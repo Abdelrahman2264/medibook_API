@@ -41,7 +41,7 @@ namespace medibook_API.Extensions.Services
         public async Task<SignInResponseDto> SignInAsync(SignInDto dto)
         {
             var user = await database.Users.Include(u => u.Role)
-                .FirstOrDefaultAsync(u => u.email.ToLower() == dto.Email.ToLower());
+                .FirstOrDefaultAsync(u => u.email.ToLower() == dto.Email.ToLower() && u.is_active);
 
             if (user == null || !passwordHasher.VerifyPassword(dto.Password, user.password_hash))
                 return new SignInResponseDto { Message = "Invalid email or password" };
